@@ -1,0 +1,248 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Mr.Spena Administration</title>
+<link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;500;600;700&display=swap" rel="stylesheet">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/mammoth/1.6.0/mammoth.browser.min.js"></script>
+<style>
+:root{--ink:#101615;--teal:#0f9d8a;--btn:#079886;--btn2:#067a6b;--pill:#d0e6e1;--bg:#f1faf8;--card:#fff;--line:#b9d6d1;--mute:#5d6b68;--orange:#fbb040;--err:#b3261e}
+*{box-sizing:border-box}
+body{margin:0;font:14px/1.55 Poppins,system-ui,-apple-system,"Segoe UI",sans-serif;color:var(--ink);background:var(--bg)}
+button,input,select,textarea{font:inherit;color:inherit}
+.hide{display:none!important}
+h1,h2,h3{line-height:1.25;margin:0 0 8px;font-weight:700}h1{font-size:28px}h2{font-size:20px}h3{font-size:15px}
+.t{color:var(--teal)}
+label{display:block;font-weight:500;font-size:12px;margin:12px 0 4px}
+input,select,textarea{width:100%;padding:10px 12px;border:1px solid var(--line);border-radius:8px;background:var(--bg);font-size:13px}
+input::placeholder,textarea::placeholder{color:#7d8c89}
+textarea{min-height:84px;resize:vertical}
+input:focus,select:focus,textarea:focus,button:focus-visible,[contenteditable]:focus{outline:2px solid var(--teal);outline-offset:1px}
+.btn{border:0;background:var(--btn);color:#fff;padding:10px 18px;border-radius:8px;font-weight:600;cursor:pointer}
+.btn:hover{background:var(--btn2)}.btn.ghost{background:#fff;color:var(--ink);border:1px solid var(--line)}.btn.ghost:hover{background:var(--bg)}
+.btn[disabled]{opacity:.55;cursor:wait}
+#login{min-height:100vh;display:grid;place-items:center;padding:16px}
+.box{background:var(--card);border-radius:16px;padding:32px 28px;width:100%;max-width:380px}
+.bub{display:inline-block;width:34px;height:26px;background:var(--orange);border-radius:50%;position:relative;vertical-align:middle;margin-right:8px}
+.bub:after{content:"";position:absolute;left:7px;bottom:-5px;border:6px solid transparent;border-top-color:var(--orange);border-bottom:0;border-left-width:2px}
+.bub:before{content:"";position:absolute;left:8px;top:11px;width:4px;height:4px;border-radius:50%;background:var(--ink);box-shadow:7px 0 var(--ink),14px 0 var(--ink)}
+#app{max-width:1180px;margin:0 auto;padding:20px 20px 40px}
+nav{display:flex;align-items:center;gap:16px;margin-bottom:26px}
+nav .brand{font-weight:700;font-size:16px;white-space:nowrap}
+.pill{display:flex;gap:2px;background:var(--pill);border-radius:14px;padding:6px;overflow-x:auto;scrollbar-width:none;min-width:0}
+.pill::-webkit-scrollbar{display:none}
+.pill button{position:relative;background:none;border:0;padding:9px 14px;border-radius:8px;cursor:pointer;font-weight:500;white-space:nowrap}
+.pill button:hover{color:var(--teal)}
+.pill button.on{color:var(--teal);font-weight:600}
+.pill button.on:after{content:"";position:absolute;left:8px;right:8px;bottom:-6px;height:3px;border-radius:3px 3px 0 0;background:var(--teal)}
+.pill .dot{display:inline-block;width:6px;height:6px;border-radius:50%;background:var(--teal);margin-left:6px;vertical-align:middle}
+.pill #lo{margin-left:auto;color:var(--mute)}
+main{min-width:0}
+.card{background:var(--card);border-radius:16px;padding:22px;margin-bottom:16px}
+.grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:14px}
+.row{display:flex;gap:8px;flex-wrap:wrap;align-items:center}
+.muted{color:var(--mute);font-size:12px}.err{color:var(--err)}
+.banner{background:#fff4e2;border-radius:12px;padding:12px 14px;margin-bottom:16px}
+.banner a{color:var(--teal);font-weight:600}
+#out{border:1px solid var(--line);border-radius:10px;padding:22px;background:#fff;min-height:120px;overflow-x:auto;font-family:"Times New Roman",serif;font-size:14px}
+#out table{border-collapse:collapse;width:100%;margin:10px 0;font-size:13px}
+#out th,#out td{border:1px solid #444;padding:5px 7px;vertical-align:top;text-align:left}#out th{background:#e4f1ee}
+#out h1,#out h2,#out h3{font-family:inherit}#out p{margin:6px 0}
+.sig{display:flex;justify-content:space-between;margin-top:34px;gap:20px}.sig div{width:46%}.sig .sp{height:64px}
+.spin{display:inline-block;width:14px;height:14px;border:2px solid #fff6;border-top-color:#fff;border-radius:50%;animation:r .7s linear infinite;vertical-align:-2px}
+@keyframes r{to{transform:rotate(360deg)}}
+#toast{position:fixed;right:16px;bottom:16px;display:grid;gap:8px;z-index:9}
+#toast div{background:var(--ink);color:#fff;padding:10px 14px;border-radius:10px;max-width:340px}#toast .e{background:var(--err)}
+@media(max-width:700px){#app{padding:12px 12px 32px}nav{flex-direction:column;align-items:stretch;gap:10px}h1{font-size:23px}.card{padding:16px}}
+@media (prefers-reduced-motion:reduce){.spin{animation-duration:2s}}
+@media print{body{background:#fff}nav,#toast,.card.form,.noprint{display:none!important}#app{padding:0;max-width:none}.card{padding:0}#out{border:0;padding:0}@page{size:A4 landscape;margin:14mm}}
+</style>
+</head>
+<body>
+<div id="login" class="hide"><form class="box" id="lf">
+<h1><span class="bub"></span><span class="t">Mr.Spena</span><br>Administration</h1>
+<label for="lu">Username</label><input id="lu" autocomplete="username" required>
+<label for="lp">Password</label><input id="lp" type="password" autocomplete="current-password" required>
+<button class="btn" style="width:100%;margin-top:20px">Masuk</button></form></div>
+
+<div id="app" class="hide">
+<nav id="nav"></nav>
+<main id="main"></main>
+</div>
+<div id="toast"></div>
+
+<script>
+const $=s=>document.querySelector(s);
+const LS={get:(k,d)=>{try{const v=localStorage.getItem(k);return v==null?d:JSON.parse(v)}catch(e){return d}},set:(k,v)=>localStorage.setItem(k,JSON.stringify(v))};
+const K={prof:'spena_profil_v3',data:'spena_data_v3',key:'spena_apikey',model:'spena_model',auth:'spena_auth_v3'};
+const DEF={nama:'Feri Sujatmiko, S.Pd.',nip:'',sekolah:'SMPN 6 Blitar',mapel:'Bahasa Inggris',fase:'D',kelas:'VIII',ta:'2026/2027',kepsek:'Juli Setyanto, S.Pd., M.Pd.',nipKepsek:'',kota:'Blitar',jp:'4'};
+let prof={...DEF,...LS.get(K.prof,{})}, data=LS.get(K.data,{}), tab='home', busy=false;
+
+function toast(t,e){const d=document.createElement('div');if(e)d.className='e';d.textContent=t;$('#toast').append(d);setTimeout(()=>d.remove(),e?7000:3000)}
+const esc=s=>String(s).replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
+async function sha(s){const b=await crypto.subtle.digest('SHA-256',new TextEncoder().encode('spena|'+s));return[...new Uint8Array(b)].map(x=>x.toString(16).padStart(2,'0')).join('')}
+
+/* ---------- Modul ---------- */
+const SYS=()=>`Anda adalah konsultan administrasi guru profesional untuk Kurikulum Merdeka/Kurikulum Mendalam (Deep Learning) di Indonesia. Tulis dalam Bahasa Indonesia baku (istilah mapel boleh Inggris). Patuhi regulasi: CP mengacu Keputusan BSKAP No. 046/H/KR/2025, istilah "murid", Dimensi Profil Lulusan (DPL). Keluaran WAJIB berupa Markdown: gunakan tabel Markdown untuk data tabular, jangan memakai blok kode, jangan menulis kalimat pembuka atau penutup, dan jangan menambahkan tanda tangan (sudah ditambahkan aplikasi). Jangan mengarang data kalender: jika data tidak cukup, tulis asumsi di baris "Catatan".
+Identitas: Sekolah ${prof.sekolah}; Guru ${prof.nama}; Mapel ${prof.mapel}; Fase ${prof.fase}, Kelas ${prof.kelas}; Tahun Pelajaran ${prof.ta}; ${prof.jp} JP per minggu (1 JP = 40 menit).`;
+const MODS=[
+{id:'rpe',n:'1. Rincian Pekan Efektif',s:'RPE',desc:'Unggah kalender pendidikan (gambar, PDF, Excel, Word) atau ketik data libur/kegiatan.',
+ f:[{k:'file',t:'file',l:'Kalender pendidikan (opsional)'},{k:'info',t:'area',l:'Libur / kegiatan tidak efektif (opsional)',ph:'Mis. MPLS 13-18 Juli, PTS 5-9 Okt, libur semester 21 Des-2 Jan'}],
+ p:v=>`Susun Rincian Pekan Efektif (RPE) satu tahun pelajaran ${prof.ta}, dua tabel: "SEMESTER GANJIL" (Juli-Desember) dan "SEMESTER GENAP" (Januari-Juni). Kolom persis: NO | BULAN | JML PEKAN EFEKTIF | JML JAM EFEKTIF (= pekan efektif x ${prof.jp} JP). Akhiri tiap tabel dengan baris JUMLAH. Isi bulan dengan nama + tahun. ${v.info?'Informasi tambahan dari guru: '+v.info:''} Jika ada berkas kalender, hitung dari berkas itu. Tutup dengan satu baris "Catatan:" berisi asumsi.`},
+{id:'cp',n:'2. Capaian Pembelajaran',s:'CP',desc:'Rumusan CP per elemen untuk fase Anda, sesuai BSKAP 046/H/KR/2025.',
+ f:[{k:'ref',t:'area',l:'Acuan / catatan guru (opsional)',ph:'Tempel potongan CP resmi atau tulis penekanan yang diinginkan'},{k:'file',t:'file',l:'Dokumen CP resmi (opsional)'}],
+ p:v=>`Susun dokumen Capaian Pembelajaran ${prof.mapel} Fase ${prof.fase}: (A) Rasional singkat, (B) Tujuan mata pelajaran, (C) Karakteristik, (D) CP akhir fase per elemen (Menyimak-Berbicara, Membaca-Memirsa, Menulis-Mempresentasikan jika mapel Bahasa Inggris; sesuaikan elemen untuk mapel lain). ${v.ref?'Acuan guru: '+v.ref:''}`},
+{id:'tp',n:'3. TP, ATP & Prota',s:'TP & Prota',desc:'Tujuan Pembelajaran, Alur, dan Program Tahunan dari RPE dan CP.',
+ f:[{k:'materi',t:'area',l:'Materi/topik yang ingin dimasukkan (opsional)',ph:'Mis. Recount, Narrative, Descriptive, Imperative, Comparison'}],
+ p:v=>`Susun CP, TP, ATP dan Prota kelas ${prof.kelas} dua semester. Pakai data RPE dan CP yang diberikan sebagai batas total JP per semester (jumlah JP di tabel harus sama dengan total JP efektif RPE). Buat SATU tabel dengan kolom persis: No | Elemen CP | Capaian Pembelajaran (CP) Turunan | Tujuan Pembelajaran (TP) (3 TP bernomor per baris) | Alur/Materi Pokok | Alokasi Waktu (JP). Pisahkan dengan baris judul "SEMESTER 1 (GANJIL) - Total Alokasi Waktu: ... JP" dan "SEMESTER 2 (GENAP) ...". Sertakan baris Asesmen & Remedial tiap semester. ${v.materi?'Materi: '+v.materi:''}`},
+{id:'kktp',n:'4. KKTP',s:'KKTP',desc:'Kriteria Ketercapaian Tujuan Pembelajaran untuk tiap TP: rubrik, deskripsi kriteria, atau interval nilai.',
+ f:[{k:'model',t:'sel',l:'Model KKTP',o:['Rubrik 4 level','Deskripsi kriteria (tercapai / belum tercapai)','Interval nilai (0-100)']},{k:'sem',t:'sel',l:'Semester',o:['Ganjil','Genap','Ganjil dan Genap']},{k:'batas',t:'num',l:'Batas ketercapaian (nilai)',v:75},{k:'cat',t:'area',l:'Catatan guru (opsional)',ph:'Mis. tekankan kriteria keterampilan menulis'}],
+ p:v=>`Susun Kriteria Ketercapaian Tujuan Pembelajaran (KKTP) semester ${v.sem}, model "${v.model}", batas ketercapaian nilai ${v.batas}. Ambil Tujuan Pembelajaran PERSIS dari data TP/ATP/Prota yang diberikan (jangan mengubah atau menambah TP). Tabel kolom: No | Tujuan Pembelajaran | ${v.model.startsWith('Rubrik')?'Indikator | Baru Berkembang | Layak | Cakap | Mahir (deskripsikan perilaku yang teramati di tiap level)':v.model.startsWith('Deskripsi')?'Kriteria Tercapai | Kriteria Belum Tercapai':'Interval Nilai | Deskripsi Ketercapaian (Perlu Bimbingan, Cukup, Baik, Sangat Baik)'} | Teknik Asesmen | Tindak Lanjut (remedial / pengayaan). Tegaskan di bawah tabel bahwa murid dinyatakan mencapai TP bila nilai >= ${v.batas}. ${v.cat?'Catatan guru: '+v.cat:''}`},
+{id:'promes',n:'5. Program Semester',s:'Promes',desc:'Distribusi materi per bulan dan pekan, sinkron dengan RPE dan Prota.',
+ f:[{k:'sem',t:'sel',l:'Semester',o:['Ganjil','Genap']}],
+ p:v=>`Susun Program Semester (Promes) semester ${v.sem}. Sebelum tabel tulis identitas (Mata Pelajaran, Satuan Pendidikan, Tahun Pelajaran, Fase/Kelas/Semester) dan total alokasi waktu. Tabel kolom: No | Elemen CP | Tujuan Pembelajaran | Materi Pokok | JP | lalu satu kolom per bulan semester tsb. Isi kolom bulan dengan nomor pekan yang dipakai (mis. "2-4"), kosong jika tidak dipakai. Jumlah JP harus cocok dengan Prota dan RPE. Tambahkan baris "Kegiatan Non-Pembelajaran / Libur" dan keterangan.`},
+{id:'rpm',n:'6. RPM & Lampiran',s:'RPM',desc:'Perencanaan Pembelajaran Mendalam per pertemuan, lengkap dengan LKPD, materi, dan soal.',
+ f:[{k:'materi',t:'text',l:'Materi / topik',ph:'Teks Recount (Personal Holiday Experience)'},{k:'pert',t:'text',l:'Pertemuan ke- / jumlah',ph:'Pertemuan 1',v:'Pertemuan 1'},{k:'wkt',t:'text',l:'Alokasi waktu',v:'2 x 40 menit'},{k:'pend',t:'sel',l:'Pendekatan',o:['Genre-Based Approach + diferensiasi','Problem Based Learning (PBL)','Project Based Learning (PjBL)','Kooperatif (Jigsaw/TGT)']},{k:'cat',t:'area',l:'Kondisi kelas (opsional)',ph:'Mis. kelompok bawah kesulitan Verb 2'}],
+ p:v=>`Susun Perencanaan Pembelajaran Mendalam (RPM) materi "${v.materi}", ${v.pert}, alokasi ${v.wkt}, pendekatan ${v.pend}. ${v.cat?'Kondisi kelas: '+v.cat:''} Struktur tepat seperti format sekolah: kop (SEKOLAH, NAMA GURU, MATA PELAJARAN, KELAS/SEMESTER, MATERI, ALOKASI WAKTU); lalu bagian IDENTIFIKASI (Murid, Materi Pembelajaran, Dimensi Profil Lulusan: pilih dari 8 DPL: Keimanan dan Ketakwaan, Kewargaan, Penalaran Kritis, Kreativitas, Kolaborasi, Kemandirian, Kesehatan, Komunikasi); DESAIN PEMBELAJARAN (Capaian Pembelajaran, Lintas Disiplin Ilmu, Tujuan Pembelajaran, Topik, Praktik Pedagogis, Kemitraan, Lingkungan Pembelajaran, Pemanfaatan Digital); PENGALAMAN BELAJAR (AWAL; INTI dengan langkah Memahami, Mengaplikasi, Merefleksi beserta menitnya; PENUTUP) dengan prinsip berkesadaran, bermakna, menggembirakan; ASESMEN (awal, proses, akhir). Setelah itu LAMPIRAN: A. Materi Ajar, B. LKPD, C. Soal Evaluasi beserta kunci dan rubrik penilaian.`},
+{id:'media',n:'7. Media & Infografis',s:'Media',desc:'Outline PPT, ide infografis, kartu soal, atau kuis interaktif dari RPM Anda.',
+ f:[{k:'tipe',t:'sel',l:'Jenis media',o:['Outline presentasi (PPT)','Konsep infografis','Kartu soal / game kelas','Skrip video pembelajaran pendek']},{k:'desc',t:'area',l:'Deskripsi / topik',ph:'Kosongkan untuk memakai RPM terakhir'},{k:'file',t:'file',l:'Unggah RPM/bahan (opsional)'}],
+ p:v=>`Rancang media pembelajaran jenis "${v.tipe}" ${v.desc?'tentang: '+v.desc:'berdasarkan RPM terakhir'}. Berikan rincian per slide/bagian (judul, isi singkat, visual yang disarankan, aktivitas murid) dan teks siap pakai. Gunakan bahasa yang sesuai untuk murid kelas ${prof.kelas}.`},
+{id:'sumatif',n:'8. Soal & Asesmen',s:'Soal',desc:'Ulangan harian, STS, SAS beserta kisi-kisi, kunci jawaban, dan rubrik.',
+ f:[{k:'jenis',t:'sel',l:'Jenis',o:['Ulangan Harian','Sumatif Tengah Semester (STS)','Sumatif Akhir Semester (SAS)']},{k:'pg',t:'num',l:'Pilihan ganda',v:10},{k:'up',t:'num',l:'Uraian pendek',v:5},{k:'ul',t:'num',l:'Uraian panjang',v:0},{k:'cakupan',t:'area',l:'Materi/cakupan',ph:'Mis. Recount text, Simple Past Tense, 5W1H'},{k:'file',t:'file',l:'Bahan/RPM (opsional)'}],
+ p:v=>`Susun soal ${v.jenis} kelas ${prof.kelas}: ${v.pg} pilihan ganda, ${v.up} uraian pendek, ${v.ul} uraian panjang. Cakupan: ${v.cakupan||'sesuai RPM/Prota yang diberikan'}. Urutan keluaran: (1) Kisi-kisi (tabel: No | TP | Materi | Indikator | Level kognitif | Bentuk | No. soal), (2) Soal, bagian pilihan ganda memakai opsi A-D dan setiap soal diakhiri baris "ANS: X", (3) Kunci uraian + rubrik skor (tabel), (4) Pedoman penilaian dengan total skor 100. Hindari soal yang sama persis; sertakan teks bacaan lengkap bila soal merujuk teks.`}
+];
+
+/* ---------- AI ---------- */
+async function fileParts(f){
+ if(!f)return[];
+ const n=f.name.toLowerCase(),buf=await f.arrayBuffer();
+ if(f.type.startsWith('image/')||f.type==='application/pdf'){
+  let b='';const u=new Uint8Array(buf);for(let i=0;i<u.length;i+=8192)b+=String.fromCharCode(...u.subarray(i,i+8192));
+  return[{inlineData:{mimeType:f.type,data:btoa(b)}}]}
+ if(/\.(xlsx|xls|csv)$/.test(n)){const wb=XLSX.read(buf);return[{text:'Isi berkas Excel '+f.name+':\n'+wb.SheetNames.map(s=>'## '+s+'\n'+XLSX.utils.sheet_to_csv(wb.Sheets[s])).join('\n')}]}
+ if(/\.docx$/.test(n)){const r=await mammoth.extractRawText({arrayBuffer:buf});return[{text:'Isi berkas Word '+f.name+':\n'+r.value}]}
+ if(/\.(txt|md)$/.test(n))return[{text:await f.text()}];
+ throw new Error('Format berkas '+f.name+' belum didukung. Pakai gambar, PDF, Excel, Word (.docx), atau txt.')}
+async function callAI(parts){
+ const key=LS.get(K.key,'');if(!key)throw new Error('API key Gemini belum diisi. Buka Pengaturan, tempel API key dari Google AI Studio.');
+ const model=LS.get(K.model,'gemini-2.5-flash');
+ const url='https://generativelanguage.googleapis.com/v1beta/models/'+encodeURIComponent(model)+':generateContent';
+ const body=JSON.stringify({systemInstruction:{parts:[{text:SYS()}]},contents:[{role:'user',parts}],generationConfig:{temperature:.6,maxOutputTokens:32768}});
+ let last;
+ for(let i=0;i<3;i++){
+  const r=await fetch(url,{method:'POST',headers:{'Content-Type':'application/json','x-goog-api-key':key},body});
+  if(r.ok){const j=await r.json();const t=(j.candidates?.[0]?.content?.parts||[]).map(p=>p.text||'').join('');if(!t)throw new Error('AI tidak mengembalikan teks'+(j.promptFeedback?.blockReason?' (diblokir: '+j.promptFeedback.blockReason+')':'')+'. Coba ulangi.');return t}
+  let m='';try{m=(await r.json()).error?.message||''}catch(e){}
+  last=new Error('Gemini menolak permintaan ('+r.status+'): '+m);
+  if(r.status!==429&&r.status<500)throw last;
+  await new Promise(s=>setTimeout(s,1500*(i+1)))}
+ throw last}
+
+/* ---------- Markdown, konteks, tanda tangan ---------- */
+function md(s){
+ s=s.replace(/^```\w*\n?|```$/gm,'').trim();const L=s.split('\n');let o='',i=0;
+ const inl=t=>esc(t).replace(/\*\*(.+?)\*\*/g,'<b>$1</b>').replace(/(^|[^*])\*(?!\s)(.+?)\*/g,'$1<i>$2</i>').replace(/&lt;br\s*\/?&gt;/g,'<br>');
+ const cells=l=>l.trim().replace(/^\||\|$/g,'').split('|').map(c=>c.trim());
+ while(i<L.length){const l=L[i];
+  if(/^\s*\|/.test(l)&&/^\s*\|?\s*:?-{2,}/.test(L[i+1]||'')){
+   const h=cells(l);i+=2;let rows=[];while(i<L.length&&/^\s*\|/.test(L[i]))rows.push(cells(L[i++]));
+   o+='<table><thead><tr>'+h.map(c=>'<th>'+inl(c)+'</th>').join('')+'</tr></thead><tbody>'+rows.map(r=>{
+     const only=r.filter(Boolean);const sp=only.length===1&&r.length>2&&r[0];
+     return sp?'<tr><td colspan="'+h.length+'"><b>'+inl(r[0])+'</b></td></tr>':'<tr>'+h.map((_,k)=>'<td>'+inl(r[k]||'')+'</td>').join('')+'</tr>'}).join('')+'</tbody></table>';continue}
+  let m;
+  if(m=l.match(/^(#{1,4})\s+(.*)/)){o+='<h'+Math.min(m[1].length+1,4)+'>'+inl(m[2])+'</h'+Math.min(m[1].length+1,4)+'>'}
+  else if(/^\s*([-*]|\d+[.)])\s+/.test(l)){const ord=/^\s*\d/.test(l);let it='';while(i<L.length&&/^\s*([-*]|\d+[.)])\s+/.test(L[i]))it+='<li>'+inl(L[i++].replace(/^\s*([-*]|\d+[.)])\s+/,''))+'</li>';o+=(ord?'<ol>':'<ul>')+it+(ord?'</ol>':'</ul>');continue}
+  else if(/^\s*---+\s*$/.test(l)){o+='<hr>'}
+  else if(l.trim()){o+='<p>'+inl(l)+'</p>'}
+  i++}
+ return o}
+const txt=h=>{const d=document.createElement('div');d.innerHTML=h;return d.innerText||d.textContent||''};
+function ctx(skip){
+ let c='';for(const m of MODS){if(m.id===skip||!data[m.id]||['media','sumatif'].includes(m.id))continue;c+='\n\n### Data tersimpan: '+m.n+'\n'+txt(data[m.id].html).slice(0,7000)}
+ return c?'\n\nGunakan data berikut yang sudah disusun guru agar dokumen konsisten (jumlah JP, TP, materi, bulan harus sinkron):'+c:''}
+function sig(){
+ const d=new Date().toLocaleDateString('id-ID',{day:'numeric',month:'long',year:'numeric'});
+ return`<div class="sig"><div>Mengetahui,<br>Kepala Sekolah ${esc(prof.sekolah)}<div class="sp"></div><b><u>${esc(prof.kepsek)}</u></b><br>${prof.nipKepsek?'NIP. '+esc(prof.nipKepsek):''}</div><div>${esc(prof.kota)}, ${d}<br>Guru Mata Pelajaran<div class="sp"></div><b><u>${esc(prof.nama)}</u></b><br>${prof.nip?'NIP. '+esc(prof.nip):''}</div></div>`}
+const head=m=>`<p style="text-align:center"><b>${esc(m.n.replace(/^\d+\.\s*/,'').toUpperCase())}</b><br>${esc(prof.sekolah)} · ${esc(prof.mapel)} · Fase ${esc(prof.fase)} / Kelas ${esc(prof.kelas)}<br>Tahun Pelajaran ${esc(prof.ta)}</p>`;
+
+/* ---------- Tampilan ---------- */
+function nav(){
+ const it=[['home','Beranda'],...MODS.map(m=>[m.id,m.s]),['set','Pengaturan']];
+ $('#nav').innerHTML='<div class="brand"><span class="bub" style="transform:scale(.8)"></span>Mr.Spena</div><div class="pill">'+it.map(([id,l])=>'<button class="'+(tab===id?'on':'')+'" data-t="'+id+'">'+l+(data[id]?'<i class="dot"></i>':'')+'</button>').join('')+'<button id="lo">Keluar</button></div>';
+ $('#nav').querySelectorAll('[data-t]').forEach(b=>b.onclick=()=>{tab=b.dataset.t;show()});
+ $('#lo').onclick=()=>{sessionStorage.removeItem('spena_in');boot()};
+ const on=$('#nav .on');if(on)on.scrollIntoView({inline:'center',block:'nearest'})}
+function show(){nav();scrollTo(0,0);tab==='home'?home():tab==='set'?settings():module(MODS.find(m=>m.id===tab))}
+function noKey(){return LS.get(K.key,'')?'':'<div class="banner"><b>API key belum diisi.</b> Tanpa API key, AI tidak bisa bekerja. <a href="#" onclick="tab=\'set\';show();return false">Buka Pengaturan</a>.</div>'}
+function home(){
+ const done=MODS.filter(m=>data[m.id]).length;
+ $('#main').innerHTML=noKey()+'<div class="card"><h1><span class="t">Administrasi guru,</span> dari kalender sampai soal</h1><p class="muted">'+esc(prof.nama)+' · '+esc(prof.mapel)+' · Kelas '+esc(prof.kelas)+' · '+esc(prof.ta)+'</p><p>Kerjakan berurutan: tiap modul membaca hasil modul sebelumnya, jadi JP, TP, dan bulan di Prota, Promes, dan RPM tetap sinkron. Semua hasil bisa diedit langsung di layar lalu diunduh sebagai Word, Excel, atau dicetak ke PDF.</p><p><b>'+done+' dari '+MODS.length+' modul sudah terisi.</b></p></div>'+
+ '<div class="grid">'+MODS.map(m=>'<div class="card" style="margin:0;display:flex;flex-direction:column;align-items:flex-start"><h3>'+m.n+'</h3><p class="muted" style="flex:1">'+m.desc+'</p><button class="btn ghost" data-go="'+m.id+'">'+(data[m.id]?'Buka hasil':'Mulai')+'</button></div>').join('')+'</div>'+
+ '<div class="card" style="margin-top:16px"><h3>Cadangan data</h3><p class="muted">Data tersimpan di browser ini saja. Unduh cadangan secara berkala, atau pindahkan data ke perangkat lain.</p><div class="row"><button class="btn ghost" id="bk">Unduh cadangan (.json)</button><label class="btn ghost" style="margin:0;font-weight:600;font-size:14px;cursor:pointer">Pulihkan cadangan<input type="file" id="rs" accept=".json" class="hide"></label></div></div>';
+ document.querySelectorAll('[data-go]').forEach(b=>b.onclick=()=>{tab=b.dataset.go;show()});
+ $('#bk').onclick=()=>dl(new Blob([JSON.stringify({prof,data})],{type:'application/json'}),'cadangan_spena_'+new Date().toISOString().slice(0,10)+'.json');
+ $('#rs').onchange=async e=>{try{const j=JSON.parse(await e.target.files[0].text());if(!j.data)throw 0;prof={...DEF,...j.prof};data=j.data;LS.set(K.prof,prof);LS.set(K.data,data);toast('Cadangan dipulihkan');show()}catch(x){toast('Berkas cadangan tidak valid',1)}}}
+function module(m){
+ const fld=f=>{const id='f_'+f.k,v=f.v??'';return'<div><label for="'+id+'">'+f.l+'</label>'+(
+  f.t==='area'?'<textarea id="'+id+'" placeholder="'+esc(f.ph||'')+'"></textarea>':
+  f.t==='sel'?'<select id="'+id+'">'+f.o.map(o=>'<option>'+esc(o)+'</option>').join('')+'</select>':
+  f.t==='file'?'<input type="file" id="'+id+'" accept="image/*,.pdf,.xlsx,.xls,.csv,.docx,.txt">':
+  '<input id="'+id+'" type="'+(f.t==='num'?'number':'text')+'" value="'+esc(v)+'" placeholder="'+esc(f.ph||'')+'">')+'</div>'};
+ const d=data[m.id];
+ $('#main').innerHTML=noKey()+'<div class="card form noprint"><h2>'+m.n+'</h2><p class="muted">'+m.desc+'</p><div class="grid">'+m.f.map(fld).join('')+'</div><div class="row" style="margin-top:14px"><button class="btn" id="go">'+(d?'Susun ulang dengan AI':'Susun dengan AI')+'</button><span class="muted" id="st"></span></div></div>'+
+ '<div class="card"><div class="row noprint" style="margin-bottom:10px"><h3 style="margin:0;flex:1">Hasil <span class="muted">(klik teks untuk mengedit; tersimpan otomatis)</span></h3><button class="btn ghost" id="xw">Word</button><button class="btn ghost" id="xx">Excel</button><button class="btn ghost" id="xp">Cetak / PDF</button><button class="btn ghost" id="xc">Salin</button></div><div id="out" contenteditable="true">'+(d?d.html:'<p class="muted">Belum ada hasil. Isi form di atas lalu tekan tombol Susun dengan AI.</p>')+'</div></div>';
+ const out=$('#out');
+ out.oninput=()=>{const c=out.cloneNode(true);c.querySelector('.sig')?.remove();data[m.id]={...(data[m.id]||{}),html:c.innerHTML.replace(/<p style="text-align:center">.*?<\/p>/,'')};if(!data[m.id].html)return;LS.set(K.data,data)};
+ if(d&&!d.html.includes('class="sig"')){}
+ $('#go').onclick=async()=>{
+  if(busy)return;busy=true;const b=$('#go');b.disabled=true;b.innerHTML='<span class="spin"></span> AI bekerja…';$('#st').textContent='Biasanya 20-90 detik, jangan tutup halaman.';
+  try{
+   const v={};m.f.forEach(f=>{const e=$('#f_'+f.k);v[f.k]=f.t==='file'?e.files[0]:e.value});
+   const fp=await fileParts(v.file);
+   const text=await callAI([{text:m.p(v)+ctx(m.id)},...fp]);
+   data[m.id]={html:md(text),ts:Date.now()};LS.set(K.data,data);
+   out.innerHTML=head(m)+data[m.id].html+sig();nav();toast('Selesai. Periksa isinya lalu edit seperlunya.')
+  }catch(e){toast(e.message,1);$('#st').textContent=''}
+  finally{busy=false;b.disabled=false;b.textContent='Susun ulang dengan AI'}};
+ if(d)out.innerHTML=head(m)+d.html+sig();
+ $('#xw').onclick=()=>exportWord(m);$('#xx').onclick=()=>exportExcel(m);$('#xp').onclick=()=>print();
+ $('#xc').onclick=()=>navigator.clipboard.writeText(out.innerText).then(()=>toast('Teks disalin'))}
+function settings(){
+ $('#main').innerHTML='<div class="card"><h2>Profil guru & sekolah</h2><p class="muted">Dipakai di semua dokumen, termasuk kolom tanda tangan.</p><div class="grid">'+
+ [['nama','Nama guru'],['nip','NIP guru'],['sekolah','Sekolah'],['mapel','Mata pelajaran'],['fase','Fase'],['kelas','Kelas'],['ta','Tahun pelajaran'],['jp','JP per minggu'],['kepsek','Kepala sekolah'],['nipKepsek','NIP kepala sekolah'],['kota','Kota (tanda tangan)']].map(([k,l])=>'<div><label for="p_'+k+'">'+l+'</label><input id="p_'+k+'" value="'+esc(prof[k])+'"></div>').join('')+
+ '</div><button class="btn" id="sp" style="margin-top:14px">Simpan profil</button></div>'+
+ '<div class="card"><h2>Koneksi AI (Gemini)</h2><p class="muted">Buat API key gratis di Google AI Studio (aistudio.google.com), lalu tempel di sini. Key disimpan hanya di browser ini, tidak dikirim ke GitHub. Jangan menulis key langsung di dalam file index.html.</p><div class="grid"><div><label for="k1">API key</label><input id="k1" type="password" value="'+esc(LS.get(K.key,''))+'" autocomplete="off"></div><div><label for="k2">Nama model</label><input id="k2" value="'+esc(LS.get(K.model,'gemini-2.5-flash'))+'"></div></div><div class="row" style="margin-top:14px"><button class="btn" id="sk">Simpan</button><button class="btn ghost" id="tk">Tes koneksi</button></div></div>'+
+ '<div class="card"><h2>Ganti login</h2><p class="muted">Ini hanya kunci tampilan. Siapa pun yang membuka kode halaman bisa melewatinya, jadi jangan menyimpan data rahasia siswa di sini.</p><div class="grid"><div><label for="a1">Username baru</label><input id="a1"></div><div><label for="a2">Password baru</label><input id="a2" type="password"></div></div><button class="btn" id="sa" style="margin-top:14px">Simpan login</button></div>';
+ $('#sp').onclick=()=>{Object.keys(DEF).forEach(k=>prof[k]=$('#p_'+k).value.trim());LS.set(K.prof,prof);nav();toast('Profil disimpan')};
+ $('#sk').onclick=()=>{LS.set(K.key,$('#k1').value.trim());LS.set(K.model,$('#k2').value.trim()||'gemini-2.5-flash');toast('Pengaturan AI disimpan')};
+ $('#tk').onclick=async()=>{$('#sk').click();try{await callAI([{text:'Balas hanya dengan kata: siap'}]);toast('Koneksi berhasil')}catch(e){toast(e.message,1)}};
+ $('#sa').onclick=async()=>{const u=$('#a1').value.trim(),p=$('#a2').value;if(u.length<3||p.length<6)return toast('Username min. 3 dan password min. 6 karakter',1);LS.set(K.auth,{u,h:await sha(p)});toast('Login diperbarui')}}
+
+/* ---------- Ekspor ---------- */
+function dl(blob,name){const a=document.createElement('a');a.href=URL.createObjectURL(blob);a.download=name;a.click();setTimeout(()=>URL.revokeObjectURL(a.href),4000)}
+const fname=(m,e)=>m.n.replace(/^\d+\.\s*/,'').replace(/\W+/g,'_')+'_'+prof.sekolah.replace(/\W+/g,'')+'.'+e;
+function exportWord(m){
+ const h='<html xmlns:o="urn:schemas-microsoft-com:office:office" xmlns:w="urn:schemas-microsoft-com:office:word"><head><meta charset="utf-8"><style>@page{size:29.7cm 21cm;mso-page-orientation:landscape;margin:1.6cm}body{font-family:"Times New Roman";font-size:11pt}table{border-collapse:collapse;width:100%}td,th{border:1px solid #000;padding:3pt;vertical-align:top}th{background:#e7eeec}</style></head><body>'+$('#out').innerHTML.replace(/<div class="sig">/,'<table style="border:0"><tr><td style="border:0;width:50%"><div class="sig">').replace(/<div class="sp"><\/div>/g,'<br><br><br>')+'</body></html>';
+ dl(new Blob(['\ufeff',h],{type:'application/msword'}),fname(m,'doc'));toast('Word diunduh. Orientasi lanskap diatur otomatis.')}
+function exportExcel(m){
+ const t=[...$('#out').querySelectorAll('table')];if(!t.length)return toast('Tidak ada tabel di hasil ini. Pakai Word atau Cetak.',1);
+ const wb=XLSX.utils.book_new();t.forEach((x,i)=>XLSX.utils.book_append_sheet(wb,XLSX.utils.table_to_sheet(x),'Tabel '+(i+1)));
+ XLSX.writeFile(wb,fname(m,'xlsx'));toast('Excel diunduh')}
+
+/* ---------- Mulai ---------- */
+async function boot(){
+ const ok=sessionStorage.getItem('spena_in')==='1';
+ $('#login').classList.toggle('hide',ok);$('#app').classList.toggle('hide',!ok);
+ if(ok)show()}
+$('#lf').onsubmit=async e=>{e.preventDefault();
+ const a=LS.get(K.auth,null),u=$('#lu').value.trim(),h=await sha($('#lp').value);
+ const good=a?(u===a.u&&h===a.h):(u==='feri'&&$('#lp').value==='spena.2026.');
+ if(!good)return toast('Username atau password salah',1);
+ sessionStorage.setItem('spena_in','1');$('#lp').value='';boot()};
+boot();
+</script>
+</body>
+</html>
