@@ -124,8 +124,8 @@ html,body{background:#fff!important}
 <script>
 const $=s=>document.querySelector(s);
 const LS={get:(k,d)=>{try{const v=localStorage.getItem(k);return v==null?d:JSON.parse(v)}catch(e){return d}},mute:false,set:(k,v)=>{localStorage.setItem(k,JSON.stringify(v));if(!LS.mute&&SYNCK.includes(k)){localStorage.setItem('spena_ts',Date.now());schedPush()}}};
-const K={prof:'spena_profil_v3',data:'spena_data_v3',key:'spena_apikey',model:'spena_model',auth:'spena_auth_v3'};
-const SYNCK=[K.prof,K.data,K.auth,K.model,K.key];
+const K={prof:'spena_profil_v3',data:'spena_data_v3',key:'spena_apikey',model:'spena_model',auth:'spena_auth_v3',fb:'spena_fb'};
+const SYNCK=[K.prof,K.data,K.auth,K.model,K.key,K.fb];
 const DEF={nama:'Feri Sujatmiko, S.Pd.',nip:'',sekolah:'SMPN 6 Blitar',mapel:'Bahasa Inggris',fase:'D',kelas:'VIII',ta:'2026/2027',kepsek:'Juli Setyanto, S.Pd., M.Pd.',nipKepsek:'',kota:'Blitar',jp:'4'};
 let prof={...DEF,...LS.get(K.prof,{})}, data=LS.get(K.data,{}), tab='home', busy=false;
 
@@ -217,20 +217,69 @@ async function fileParts(f){
  if(/\.docx$/.test(n)){const r=await mammoth.extractRawText({arrayBuffer:buf});return[{text:'Isi berkas Word '+f.name+':\n'+r.value}]}
  if(/\.(txt|md)$/.test(n))return[{text:await f.text()}];
  throw new Error('Format berkas '+f.name+' belum didukung. Pakai gambar, PDF, Excel, Word (.docx), atau txt.')}
+/* ---------- AI: kuota, model cadangan, tunggu otomatis ---------- */
+const MODEL_DEF='gemini-2.5-flash',FB_DEF=['gemini-2.5-flash','gemini-2.5-flash-lite'];
+const GEN='https://generativelanguage.googleapis.com/v1beta/models';
+const sleep=ms=>new Promise(r=>setTimeout(r,ms));
+function aiSt(t){const s=document.getElementById('st');if(s)s.textContent=t||''}
+const cleanM=s=>String(s).trim().replace(/^models\//,'');
+function fbList(){const f=LS.get(K.fb,null);return f===null?FB_DEF.slice():String(f).split(/[\n,;]+/).map(cleanM).filter(Boolean)}
+const modelChain=()=>[...new Set([cleanM(LS.get(K.model,MODEL_DEF)||MODEL_DEF),...fbList()])];
+function qx(){const o=LS.get('spena_qx',{}),n=Date.now();let ch=0;Object.keys(o).forEach(k=>{if(o[k]<=n){delete o[k];ch=1}});if(ch)LS.set('spena_qx',o);return o}
+const badM=()=>LS.get('spena_bad',[]);
+function fmtDur(ms){const s=Math.max(1,Math.round(ms/1000)),h=Math.floor(s/3600),m=Math.floor(s%3600/60);return h?h+' jam '+m+' menit':m?m+' menit':s+' detik'}
+function useCount(model){const d=new Date().toISOString().slice(0,10),u=LS.get('spena_use',{});if(u.d!==d){u.d=d;u.c={}}u.c[model]=(u.c[model]||0)+1;LS.set('spena_use',u)}
+function qStatus(){const ex=qx(),u=LS.get('spena_use',{}),d=new Date().toISOString().slice(0,10),c=u.d===d?u.c:{};
+ const a=Object.entries(c).map(([m,n])=>m+': '+n+'x').join(', '),b=Object.entries(ex).map(([m,t])=>m+' (pulih sekitar '+fmtDur(t-Date.now())+')').join(', ');
+ return 'Permintaan berhasil hari ini: '+(a||'belum ada')+'.'+(b?' Kuota habis: '+b+'.':'')+(badM().length?' Tidak tersedia: '+badM().join(', ')+'.':'')}
+async function aiErr(r){let j={};try{j=await r.json()}catch(e){}const e=j.error||{},det=e.details||[],msg=String(e.message||'');
+ const ri=det.find(d=>/RetryInfo/.test(d['@type']||''));let delay=ri&&ri.retryDelay?parseFloat(ri.retryDelay)*1000:0;
+ if(!delay){const m=msg.match(/retry in\s+(?:(\d+)h)?\s*(?:(\d+)m)?\s*([\d.]+)s/i);if(m)delay=((+m[1]||0)*3600+(+m[2]||0)*60+parseFloat(m[3]||0))*1000}
+ const viol=JSON.stringify(det.filter(d=>/QuotaFailure/.test(d['@type']||'')));
+ return{status:r.status,msg,delay,daily:/PerDay/i.test(viol+msg)||delay>120000}}
+async function callModel(model,key,parts){
+ const body=JSON.stringify({systemInstruction:{parts:[{text:SYS()}]},contents:[{role:'user',parts}],generationConfig:{temperature:.6,maxOutputTokens:32768}});
+ let waits=0,tries=0;
+ for(;;){
+  let r;try{r=await fetch(GEN+'/'+encodeURIComponent(model)+':generateContent',{method:'POST',headers:{'Content-Type':'application/json','x-goog-api-key':key},body})}
+  catch(e){if(++tries>2)throw new Error('Tidak bisa terhubung ke Gemini. Periksa koneksi internet Anda.');await sleep(2000*tries);continue}
+  if(r.ok){const j=await r.json(),t=(j.candidates?.[0]?.content?.parts||[]).map(p=>p.text||'').join('');
+   if(!t)throw new Error('AI tidak mengembalikan teks'+(j.promptFeedback?.blockReason?' (diblokir: '+j.promptFeedback.blockReason+')':'')+'. Coba ulangi.');
+   useCount(model);return t}
+  const e=await aiErr(r);
+  if(r.status===429){
+   if(e.daily){const x=new Error('quota');x.quota=true;x.reset=Date.now()+(e.delay||3600000);throw x}
+   if(waits<3){waits++;const ms=Math.min(Math.max(e.delay||8000,3000),65000);for(let t=Math.ceil(ms/1000);t>0;t--){aiSt('Batas per menit tercapai. Menunggu '+t+' detik lalu mencoba lagi...');await sleep(1000)}aiSt('');continue}
+   const x=new Error('quota');x.quota=true;x.reset=Date.now()+60000;throw x}
+  if(r.status===404){const x=new Error('Model "'+model+'" tidak tersedia untuk key Anda.');x.skip=true;throw x}
+  if(r.status>=500&&tries<3){tries++;aiSt('Server Gemini sibuk, mencoba lagi...');await sleep(2500*tries);continue}
+  if(r.status===400&&/API key/i.test(e.msg))throw new Error('API key tidak valid. Periksa kembali di Pengaturan.');
+  if(r.status===401||r.status===403)throw new Error('API key ditolak (kode '+r.status+'). Pastikan key aktif dan Gemini API diizinkan.');
+  throw new Error('Gemini menolak permintaan ('+r.status+'): '+e.msg.slice(0,200))}}
 async function callAI(parts){
  const key=LS.get(K.key,'');if(!key)throw new Error('API key Gemini belum diisi. Buka Pengaturan, tempel API key dari Google AI Studio.');
- const model=LS.get(K.model,'gemini-2.5-flash');
- const url='https://generativelanguage.googleapis.com/v1beta/models/'+encodeURIComponent(model)+':generateContent';
- const body=JSON.stringify({systemInstruction:{parts:[{text:SYS()}]},contents:[{role:'user',parts}],generationConfig:{temperature:.6,maxOutputTokens:32768}});
- let last;
- for(let i=0;i<3;i++){
-  const r=await fetch(url,{method:'POST',headers:{'Content-Type':'application/json','x-goog-api-key':key},body});
-  if(r.ok){const j=await r.json();const t=(j.candidates?.[0]?.content?.parts||[]).map(p=>p.text||'').join('');if(!t)throw new Error('AI tidak mengembalikan teks'+(j.promptFeedback?.blockReason?' (diblokir: '+j.promptFeedback.blockReason+')':'')+'. Coba ulangi.');return t}
-  let m='';try{m=(await r.json()).error?.message||''}catch(e){}
-  last=new Error('Gemini menolak permintaan ('+r.status+'): '+m);
-  if(r.status!==429&&r.status<500)throw last;
-  await new Promise(s=>setTimeout(s,1500*(i+1)))}
- throw last}
+ const chain=modelChain();let last=null,used=0;
+ for(let i=0;i<chain.length;i++){const model=chain[i];
+  if(qx()[model]||badM().includes(model))continue;
+  try{const t=await callModel(model,key,parts);if(used)toast('Memakai model cadangan: '+model);aiSt('');return t}
+  catch(e){used++;
+   if(e.quota){const o=LS.get('spena_qx',{});o[model]=e.reset;LS.set('spena_qx',o);last=e;if(chain.slice(i+1).some(m=>!qx()[m]&&!badM().includes(m)))toast('Kuota '+model+' habis, beralih ke model cadangan...');continue}
+   if(e.skip){const b=badM();if(!b.includes(model)){b.push(model);LS.set('spena_bad',b)}last=e;continue}
+   throw e}}
+ const left=Object.values(qx());
+ if(left.length)throw new Error('Kuota harian semua model habis, pulih sekitar '+fmtDur(Math.min(...left)-Date.now())+' lagi. Solusi: aktifkan billing di Google AI Studio atau tambah model cadangan di Pengaturan > Koneksi AI.');
+ throw new Error((last&&last.message?last.message+' ':'')+'Periksa nama model di Pengaturan > Koneksi AI (tombol "Lihat model di akun saya").')}
+async function listModels(){
+ const key=LS.get(K.key,'');if(!key)throw new Error('Isi API key dulu');
+ const r=await fetch(GEN+'?pageSize=200',{headers:{'x-goog-api-key':key}});
+ if(!r.ok){const e=await aiErr(r);throw new Error(r.status===400||r.status===403?'API key tidak valid atau ditolak.':'Gagal membaca daftar model ('+r.status+'): '+e.msg.slice(0,120))}
+ const j=await r.json();
+ return(j.models||[]).filter(m=>(m.supportedGenerationMethods||[]).includes('generateContent')).map(m=>cleanM(m.name)).filter(n=>/^gemini/.test(n)&&!/embed|tts|image|live|audio|robot|computer|veo|native|aqa/.test(n)).sort().reverse()}
+function quotaBanner(){
+ if(!LS.get(K.key,''))return'';const ex=qx(),ch=modelChain().filter(m=>!badM().includes(m));
+ if(!ch.length||!ch.every(m=>ex[m]))return'';
+ const t=Math.min(...ch.map(m=>ex[m]))-Date.now();
+ return'<div class="banner"><b>Kuota Gemini habis.</b> Semua model sudah mencapai batas, pulih sekitar '+fmtDur(t)+' lagi. Agar bisa lanjut sekarang: aktifkan billing atau tambah model cadangan. <a href="#" onclick="tab=\'set\';show();return false">Buka Pengaturan</a>.</div>'}
 
 /* ---------- Markdown, konteks, tanda tangan ---------- */
 function cleanAIText(s){
@@ -304,7 +353,8 @@ function hd(){
  $('#mb').onclick=()=>document.body.classList.toggle('nv');
  $('#hlo').onclick=e=>{e.preventDefault();logout()}}
 function show(){nav();hd();scrollTo(0,0);tab==='home'?home():tab==='set'?settings():module(MODS.find(m=>m.id===tab))}
-function noKey(){return LS.get(K.key,'')?'':'<div class="banner"><b>API key belum diisi.</b> Tanpa API key, AI tidak bisa bekerja. <a href="#" onclick="tab=\'set\';show();return false">Buka Pengaturan</a>.</div>'}
+function noKey(){return noKey0()+quotaBanner()}
+function noKey0(){return LS.get(K.key,'')?'':'<div class="banner"><b>API key belum diisi.</b> Tanpa API key, AI tidak bisa bekerja. <a href="#" onclick="tab=\'set\';show();return false">Buka Pengaturan</a>.</div>'}
 const QT=['Perencanaan yang rapi membuat kelas berjalan lebih tenang.','Satu dokumen selesai hari ini, satu beban berkurang besok.','Murid belajar paling baik dari guru yang siap.','Langkah kecil yang konsisten menghasilkan perubahan besar.','Mulai dari yang paling mudah, lalu lanjutkan.'];
 function home(){
  const n=MODS.length,done=MODS.filter(m=>data[m.id]).length,pct=Math.round(done/n*100),key=!!LS.get(K.key,''),nxt=MODS.find(m=>!data[m.id]);
@@ -379,7 +429,7 @@ function settings(){
  $('#main').innerHTML='<div class="card"><h2>Profil guru & sekolah</h2><p class="muted">Dipakai di semua dokumen, termasuk kolom tanda tangan.</p><div class="grid">'+
  [['nama','Nama guru'],['nip','NIP guru'],['sekolah','Sekolah'],['mapel','Mata pelajaran'],['fase','Fase'],['kelas','Kelas'],['ta','Tahun pelajaran'],['jp','JP per minggu'],['kepsek','Kepala sekolah'],['nipKepsek','NIP kepala sekolah'],['kota','Kota (tanda tangan)']].map(([k,l])=>'<div><label for="p_'+k+'">'+l+'</label><input id="p_'+k+'" value="'+esc(prof[k])+'"></div>').join('')+
  '</div><button class="btn" id="sp" style="margin-top:14px">Simpan profil</button></div>'+
- '<div class="card"><h2>Koneksi AI (Gemini)</h2><p class="muted">Buat API key gratis di Google AI Studio (aistudio.google.com), lalu tempel di sini. Key disimpan hanya di browser ini, tidak dikirim ke GitHub. Jangan menulis key langsung di dalam file index.html.</p><div class="grid"><div><label for="k1">API key</label><input id="k1" type="password" value="'+esc(LS.get(K.key,''))+'" autocomplete="off"></div><div><label for="k2">Nama model</label><input id="k2" value="'+esc(LS.get(K.model,'gemini-2.5-flash'))+'"></div></div><div class="row" style="margin-top:14px"><button class="btn" id="sk">Simpan</button><button class="btn ghost" id="tk">Tes koneksi</button></div></div>'+
+ '<div class="card"><h2>Koneksi AI (Gemini)</h2><p class="muted">Buat API key gratis di Google AI Studio (aistudio.google.com), lalu tempel di sini. Key disimpan hanya di browser ini, tidak dikirim ke GitHub. Jangan menulis key langsung di dalam file index.html.</p><div class="grid"><div><label for="k1">API key</label><input id="k1" type="password" value="'+esc(LS.get(K.key,''))+'" autocomplete="off"></div><div><label for="k2">Model utama</label><input id="k2" value="'+esc(LS.get(K.model,'gemini-2.5-flash'))+'"></div><div style="grid-column:1/-1"><label for="k3">Model cadangan (satu per baris, dicoba berurutan saat kuota model utama habis)</label><textarea id="k3" rows="3" placeholder="gemini-2.5-flash">'+esc(fbList().join('\n'))+'</textarea></div></div><div class="row" style="margin-top:14px"><button class="btn" id="sk">Simpan</button><button class="btn ghost" id="tk">Tes koneksi</button><button class="btn ghost" id="lm">Lihat model di akun saya</button><button class="btn ghost" id="qr">Coba lagi semua model</button></div><div class="row" id="lmo" style="margin-top:10px"></div><p class="muted" id="qs" style="margin-top:10px">'+esc(qStatus())+'</p><details style="margin-top:8px"><summary style="cursor:pointer;font-weight:700">Agar generate tidak sering terhenti karena kuota</summary><ol class="muted" style="line-height:1.7"><li><b>Aktifkan billing</b> pada project API key Anda (di Google AI Studio, halaman API keys, tombol Set up billing atau Upgrade). Batas harian naik jauh dan biayanya dihitung per pemakaian, tanpa biaya tetap.</li><li><b>Model cadangan.</b> Tiap model punya kuota sendiri. Saat model utama habis, aplikasi otomatis pindah ke model berikutnya di daftar.</li><li><b>Hemat permintaan.</b> Satu tombol Susun sama dengan satu permintaan. Hindari menekan Susun ulang berkali-kali; edit hasil langsung di layar. Tombol Tes koneksi tidak memakai kuota.</li><li>Kuota harian reset otomatis. Waktu pulihnya tertera di status di atas.</li></ol></details></div>'+
  '<div class="card"><h2>Sinkronisasi antar perangkat</h2><p class="muted">Data (profil, hasil dokumen, login) tersimpan di browser tiap perangkat. Hubungkan ke Google Drive Anda agar semua perangkat memakai data yang sama.</p><div class="grid"><div><label for="s1">URL Web App (Google Apps Script)</label><input id="s1" value="'+esc((syncCfg()||{}).u||'')+'" placeholder="https://script.google.com/macros/s/.../exec"></div><div><label for="s2">Kode rahasia</label><input id="s2" type="password" value="'+esc((syncCfg()||{}).c||'')+'" autocomplete="off"></div></div><label style="display:flex;gap:8px;align-items:center;font-weight:400;margin-top:12px"><input type="checkbox" id="s3" style="width:auto" '+((syncCfg()||{}).key?'checked':'')+'> Sertakan API key Gemini (tersimpan di Google Drive Anda)</label><div class="row" style="margin-top:14px"><button class="btn" id="ss">Simpan & uji</button><button class="btn ghost" id="su">Unggah dari perangkat ini</button><button class="btn ghost" id="sd">Ambil dari cloud</button><button class="btn ghost" id="sl">Salin tautan perangkat baru</button></div><p class="muted" id="sst" style="margin-top:10px">'+(syncCfg()?'Otomatis mengunggah 2-3 detik setelah ada perubahan. Terakhir: '+(LS.get('spena_last',0)?new Date(LS.get('spena_last')).toLocaleString('id-ID'):'belum pernah'):'Belum terhubung.')+'</p><details style="margin-top:12px"><summary style="cursor:pointer;font-weight:600">Cara membuat (sekali saja, sekitar 3 menit)</summary><ol class="muted"><li>Buka script.google.com, pilih Proyek baru.</li><li>Hapus isi awal, tempel kode di bawah, lalu ganti <b>GANTI_DENGAN_KODE_RAHASIA_ANDA</b> dengan kode panjang pilihan Anda.</li><li>Klik Deploy, Deployment baru, jenis <b>Aplikasi web</b>. Jalankan sebagai: <b>Saya</b>. Yang memiliki akses: <b>Siapa saja</b>. Deploy, lalu izinkan akses Drive.</li><li>Salin URL yang berakhiran /exec ke kolom di atas, isi kode rahasia yang sama, lalu tekan Simpan & uji dan Unggah dari perangkat ini.</li><li>Di perangkat lain, tekan Salin tautan perangkat baru di sini, lalu buka tautan itu di perangkat tujuan. Tautan berisi kode rahasia, jadi kirim hanya ke diri sendiri.</li></ol><pre id="gs" style="white-space:pre-wrap;background:var(--bg);border-radius:8px;padding:12px;font-size:12px;overflow:auto">'+esc(GS)+'</pre><button class="btn ghost" id="sc">Salin kode</button></details></div>'+
  '<div class="card"><h2>Ganti login</h2><p class="muted">Ini hanya kunci tampilan. Siapa pun yang membuka kode halaman bisa melewatinya, jadi jangan menyimpan data rahasia siswa di sini.</p><div class="grid"><div><label for="a1">Username baru</label><input id="a1"></div><div><label for="a2">Password baru</label><input id="a2" type="password"></div></div><button class="btn" id="sa" style="margin-top:14px">Simpan login</button></div>';
 
@@ -390,8 +440,10 @@ function settings(){
  $('#sl').onclick=()=>{const o=rd();if(!o.u)return toast('Isi dan simpan koneksi dulu',1);LS.set('spena_sync',o);const t=location.origin+location.pathname+'#s='+btoa(unescape(encodeURIComponent(JSON.stringify(o))));navigator.clipboard.writeText(t).then(()=>toast('Tautan disalin. Buka di perangkat baru.'))};
  $('#sc').onclick=()=>navigator.clipboard.writeText(GS).then(()=>toast('Kode disalin'));
  $('#sp').onclick=()=>{Object.keys(DEF).forEach(k=>prof[k]=$('#p_'+k).value.trim());LS.set(K.prof,prof);nav();toast('Profil disimpan')};
- $('#sk').onclick=()=>{LS.set(K.key,$('#k1').value.trim());LS.set(K.model,$('#k2').value.trim()||'gemini-2.5-flash');toast('Pengaturan AI disimpan')};
- $('#tk').onclick=async()=>{$('#sk').click();try{await callAI([{text:'Balas hanya dengan kata: siap'}]);toast('Koneksi berhasil')}catch(e){toast(e.message,1)}};
+ $('#sk').onclick=()=>{LS.set(K.key,$('#k1').value.trim());LS.set(K.model,cleanM($('#k2').value)||'gemini-2.5-flash');LS.set(K.fb,$('#k3').value);LS.set('spena_qx',{});LS.set('spena_bad',[]);$('#qs').textContent=qStatus();toast('Pengaturan AI disimpan')};
+ $('#qr').onclick=()=>{LS.set('spena_qx',{});LS.set('spena_bad',[]);$('#qs').textContent=qStatus();toast('Penanda kuota dihapus. Model dicoba lagi saat Anda menekan Susun.')};
+ $('#lm').onclick=async()=>{const b=$('#lm');b.disabled=true;b.textContent='Memuat...';try{const l=await listModels(),box=$('#lmo');box.innerHTML=l.length?'<span class="muted" style="width:100%">Klik nama model untuk menambahkannya sebagai cadangan:</span>'+l.map(n=>'<button class="btn ghost" style="padding:5px 10px;font-size:12px" data-m="'+esc(n)+'">'+esc(n)+'</button>').join(''):'<span class="muted">Tidak ada model yang cocok.</span>';box.querySelectorAll('[data-m]').forEach(x=>x.onclick=()=>{const t=$('#k3'),a=t.value.split(/\n+/).map(s=>s.trim()).filter(Boolean);if(!a.includes(x.dataset.m))a.push(x.dataset.m);t.value=a.join('\n');toast('Ditambahkan. Tekan Simpan.')})}catch(e){toast(e.message,1)}finally{b.disabled=false;b.textContent='Lihat model di akun saya'}};
+ $('#tk').onclick=async()=>{$('#sk').click();try{const l=await listModels();toast('Koneksi berhasil. '+l.length+' model tersedia. Tes ini tidak memakai kuota.')}catch(e){toast(e.message,1)}};
  $('#sa').onclick=async()=>{const u=$('#a1').value.trim(),p=$('#a2').value;if(u.length<3||p.length<6)return toast('Username min. 3 dan password min. 6 karakter',1);LS.set(K.auth,{u,h:await sha(p)});toast('Login diperbarui')}}
 
 /* ---------- Ekspor ---------- */
@@ -726,7 +778,7 @@ function doPost(e){
 let pushT;
 const syncCfg=()=>LS.get('spena_sync',null);
 function schedPush(){const c=syncCfg();if(!c||!c.u||LS.mute)return;clearTimeout(pushT);pushT=setTimeout(()=>push(true),2500)}
-function bundle(){const c=syncCfg()||{};const b={ts:+localStorage.getItem('spena_ts')||Date.now(),prof,data,auth:LS.get(K.auth,null),model:LS.get(K.model,'gemini-2.5-flash')};if(c.key)b.key=LS.get(K.key,'');return b}
+function bundle(){const c=syncCfg()||{};const b={ts:+localStorage.getItem('spena_ts')||Date.now(),prof,data,auth:LS.get(K.auth,null),model:LS.get(K.model,'gemini-2.5-flash'),fb:LS.get(K.fb,null)};if(c.key)b.key=LS.get(K.key,'');return b}
 async function sCall(action,payload){
  const c=syncCfg();if(!c||!c.u)throw new Error('URL sinkronisasi belum diisi');
  const r=await fetch(c.u,{method:'POST',headers:{'Content-Type':'text/plain;charset=utf-8'},body:JSON.stringify({secret:c.c,action,payload})});
@@ -741,7 +793,7 @@ async function pull(force){
  const lt=+localStorage.getItem('spena_ts')||0;if(!force&&p.ts<=lt)return 'sama';
  LS.mute=true;try{
   prof={...DEF,...p.prof};data=p.data||{};LS.set(K.prof,prof);LS.set(K.data,data);
-  if(p.auth)LS.set(K.auth,p.auth);if(p.model)LS.set(K.model,p.model);if(p.key)LS.set(K.key,p.key);
+  if(p.auth)LS.set(K.auth,p.auth);if(p.fb!==undefined&&p.fb!==null)LS.set(K.fb,p.fb);if(p.model)LS.set(K.model,p.model);if(p.key)LS.set(K.key,p.key);
   localStorage.setItem('spena_ts',p.ts)}finally{LS.mute=false}
  return 'baru'}
 async function syncStart(){
