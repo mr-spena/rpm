@@ -134,7 +134,7 @@ const esc=s=>String(s).replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;',
 async function sha(s){const b=await crypto.subtle.digest('SHA-256',new TextEncoder().encode('spena|'+s));return[...new Uint8Array(b)].map(x=>x.toString(16).padStart(2,'0')).join('')}
 
 /* ---------- Modul ---------- */
-const SYS=()=>`Anda adalah konsultan administrasi guru profesional SMP untuk Kurikulum Merdeka/Kurikulum Mendalam (Deep Learning) di Indonesia. Prioritaskan kesinambungan antarpertemuan, keterukuran tujuan, diferensiasi, asesmen formatif, serta integrasi literasi dan numerasi yang relevan dengan mata pelajaran. Tulis dalam Bahasa Indonesia baku (istilah mapel boleh Inggris). Patuhi regulasi: CP mengacu Keputusan BSKAP No. 046/H/KR/2025, istilah "murid", Dimensi Profil Lulusan (DPL). Keluaran WAJIB berupa Markdown: gunakan tabel Markdown untuk data tabular, jangan memakai blok kode, jangan menulis kalimat pembuka atau penutup, dan jangan menambahkan tanda tangan (sudah ditambahkan aplikasi). Jangan mengarang data kalender: jika data tidak cukup, tulis asumsi di baris "Catatan".
+const SYS=()=>`Anda adalah konsultan administrasi guru profesional SMP untuk Kurikulum Merdeka/Kurikulum Mendalam (Deep Learning) di Indonesia. Prioritaskan kesinambungan antarpertemuan, keterukuran tujuan, diferensiasi, asesmen formatif, serta integrasi literasi dan numerasi yang relevan dengan mata pelajaran. Tulis dalam Bahasa Indonesia baku (istilah mapel boleh Inggris). Patuhi regulasi: CP mengacu Keputusan BSKAP No. 046/H/KR/2025, istilah "murid", Dimensi Profil Lulusan (DPL). Keluaran WAJIB berupa Markdown: gunakan tabel Markdown untuk data tabular, jangan memakai blok kode, jangan menulis kalimat pembuka atau penutup, dan jangan menambahkan tanda tangan (sudah ditambahkan aplikasi). Jangan mengarang data kalender: jika data tidak cukup, tulis asumsi di baris "Catatan". GAYA TULIS WAJIB HUMANIS DAN NATURAL seperti dokumen guru profesional: gunakan kalimat sederhana, jelas, langsung, dan tidak terasa seperti keluaran AI. HINDARI LaTeX, simbol matematika bergaya kode, tanda dolar, backslash, panah Unicode, emoji, ikon, dekorasi, bullet aneh, dan karakter khusus yang tidak diperlukan. Jangan menulis pola seperti \text{}, \rightarrow, $, \( \), atau rumus dalam format LaTeX. Untuk rumus bahasa gunakan teks biasa, misalnya "Subject + Verb 2 + Complement". Jika perlu panah perubahan kata kerja, tulis dengan kata "menjadi". Gunakan tanda baca dan penomoran biasa. Hindari frasa generik seperti "tentu saja", "tentunya", "dengan demikian" berulang-ulang. Hasil harus terasa seperti ditulis guru SMP untuk dipakai langsung di kelas.
 Identitas: Sekolah ${prof.sekolah}; Guru ${prof.nama}; Mapel ${prof.mapel}; Fase ${prof.fase}, Kelas ${prof.kelas}; Tahun Pelajaran ${prof.ta}; ${prof.jp} JP per minggu (1 JP = 40 menit).`;
 const MODS=[
 {id:'rpe',n:'1. Rincian Pekan Efektif',s:'RPE',desc:'Unggah kalender pendidikan (gambar, PDF, Excel, Word) atau ketik data libur/kegiatan.',
@@ -159,7 +159,7 @@ const MODS=[
   {k:'pert',t:'text',l:'Pertemuan ke-',v:'1'},
   {k:'totalPert',t:'num',l:'Target jumlah pertemuan unit',v:4},
   {k:'wkt',t:'text',l:'Alokasi waktu',v:'2 x 40 menit'},
-  {k:'pend',t:'sel',l:'Pendekatan',o:['Genre-Based Approach + diferensiasi','Problem Based Learning (PBL)','Project Based Learning (PjBL)','Kooperatif (Jigsaw/TGT)','Inquiry / Discovery Learning']},
+  {k:'pend',t:'sel',l:'Pendekatan',o:['Pembelajaran Berbasis Genre (Genre-Based Approach)','Problem Based Learning (PBL)','Project Based Learning (PjBL)','Inquiry Learning','Discovery Learning','Cooperative Learning - Jigsaw','Cooperative Learning - Think Pair Share','Cooperative Learning - STAD','Team Games Tournament (TGT)','Problem Solving','Contextual Teaching and Learning (CTL)','Communicative Language Teaching (CLT)','Task-Based Language Teaching (TBLT)','Experiential Learning','Flipped Classroom','Direct Instruction / Explicit Teaching','Differentiated Instruction','Blended Learning','STEAM / Project Inquiry','Pendekatan eklektik / kombinasi sesuai kebutuhan']},
   {k:'continuity',t:'sel',l:'Posisi dalam rangkaian',o:['Pertemuan awal unit','Lanjutan pertemuan sebelumnya','Penguatan / remedial','Asesmen / refleksi akhir unit']},
   {k:'prev',t:'area',l:'Keterkaitan pertemuan sebelumnya (opsional)',ph:'Akan diisi otomatis bila membuat pertemuan berikutnya.'},
   {k:'lit',t:'sel',l:'Integrasi Literasi & Numerasi',o:['Literasi + numerasi terintegrasi','Literasi dominan','Numerasi dominan','Disesuaikan kebutuhan murid']},
@@ -179,34 +179,31 @@ Keluaran WAJIB:
 (6) Tutup lampiran dengan bagian "D. Keterhubungan Rangkaian Pembelajaran" berisi: posisi pertemuan, kompetensi yang sudah dibangun, bukti belajar yang dihasilkan, prasyarat pertemuan berikutnya, dan saran fokus pertemuan berikutnya.
 Jangan menulis kalimat pembuka atau tanda tangan.`
 },
-{id:'lkpd',n:'7. LKPD Generator',s:'LKPD',desc:'Buat LKPD siswa dari RPM dengan pilihan C1-C6, jenis soal, literasi, numerasi, diferensiasi, dan kunci/rubrik guru.',
+{id:'lkpd',n:'7. LKPD Generator',s:'LKPD',desc:'Buat LKPD profesional dari RPM atau deskripsi materi, dengan variasi bentuk soal, C1-C6, LitNum, diferensiasi, dan opsi soal bergambar.',
  f:[
-  {k:'file',t:'file',l:'Unggah RPM yang sudah dibuat'},
+  {k:'file',t:'file',l:'Unggah RPM yang sudah dibuat (opsional)'},
+  {k:'materi',t:'area',l:'Deskripsi materi / konteks secara manual (opsional)',ph:'Tulis materi jika tidak mengunggah RPM. Contoh: Recount Text tentang pengalaman liburan, fokus Simple Past Tense dan time signals.'},
   {k:'jumlah',t:'num',l:'Jumlah butir / aktivitas',v:10},
   {k:'level',t:'sel',l:'Level kognitif utama',o:['Campuran C1-C6','C1 Mengingat','C2 Memahami','C3 Menerapkan','C4 Menganalisis','C5 Mengevaluasi','C6 Mencipta']},
-  {k:'jenis',t:'sel',l:'Jenis soal / aktivitas',o:['Campuran','Pilihan ganda','Pilihan ganda kompleks','Benar-Salah + alasan','Menjodohkan','Isian singkat','Uraian','Studi kasus','Proyek mini','Tugas berbasis data']},
+  {k:'jenis',t:'sel',l:'Jenis soal / aktivitas',o:['Campuran semua bentuk','Pilihan ganda','Pilihan ganda kompleks','Benar-Salah + alasan','Menjodohkan','Isian singkat','Uraian pendek','Uraian panjang','Studi kasus','Proyek mini','Tugas berbasis data','Mengurutkan langkah','Melengkapi teks/dialog']},
+  {k:'gambar',t:'sel',l:'Soal bergambar (opsional)',o:['Tidak perlu gambar','Boleh menggunakan gambar jika membantu','Wajib menyertakan soal bergambar'],},
+  {k:'jmlgambar',t:'num',l:'Jumlah soal bergambar (jika dipilih)',v:5},
   {k:'litnum',t:'sel',l:'Literasi & Numerasi',o:['Terintegrasi','Literasi dominan','Numerasi dominan','Tanpa numerasi bila tidak relevan']},
   {k:'kesulitan',t:'sel',l:'Tingkat kesulitan',o:['Dasar','Sedang','Menantang / HOTS','Bertingkat (mudah-sedang-HOTS)']},
   {k:'diferensiasi',t:'sel',l:'Diferensiasi',o:['Tidak perlu','Konten','Proses','Produk','Konten + proses + produk']},
   {k:'cat',t:'area',l:'Catatan guru (opsional)',ph:'Konteks kelas, kebutuhan murid, bentuk kerja individu/kelompok, atau batasan waktu.'}
  ],
- p:v=>`Buat LKPD siswa kelas ${prof.kelas} berdasarkan RPM yang diunggah. Jumlah ${v.jumlah} butir/aktivitas. Level: ${v.level}. Jenis: ${v.jenis}. LitNum: ${v.litnum}. Kesulitan: ${v.kesulitan}. Diferensiasi: ${v.diferensiasi}. ${v.cat?'Catatan guru: '+v.cat:''}
-WAJIB membaca RPM sebagai sumber utama dan mempertahankan materi, tujuan pembelajaran, konteks, dan urutan pengalaman belajar RPM. Jangan membuat LKPD yang tidak terkait RPM.
-Keluarkan:
-# LKPD
-Identitas singkat (nama, kelas, tanggal), tujuan, petunjuk, alat/bahan bila perlu.
-Tugas/soal bernomor berurutan (1., 2., 3., dst.), satu butir per paragraf/blok, dengan jarak yang cukup. Jika ada pilihan jawaban, setiap opsi harus berada pada baris terpisah dengan format A. ..., B. ..., C. ..., D. ...; jangan gabungkan opsi dalam satu paragraf. Untuk setiap butir tulis label [C1]-[C6] dan [Literasi], [Numerasi], atau [LitNum] bila relevan. Numerasi hanya digunakan bila masuk akal untuk mapel/materi. Literasi dapat berupa menemukan informasi, menafsirkan, menyimpulkan, mengevaluasi sumber, atau mengomunikasikan.
-Jika jenis soal campuran, variasikan format secara proporsional.
-Tambahkan ruang jawaban yang cukup secara tekstual.
-Setelah LKPD siswa, buat:
-## Kunci / Pedoman Jawaban Guru
-## Rubrik Penilaian
-## Pemetaan Butir: No | Tujuan Pembelajaran | C1-C6 | Literasi/Numerasi | Bentuk | Skor
-Jangan menambahkan materi yang tidak didukung RPM.`
+ p:v=>`Buat LKPD profesional untuk murid kelas ${prof.kelas}. SUMBER UTAMA: gunakan RPM yang diunggah bila tersedia. Jika RPM tidak diunggah atau informasinya belum cukup, gunakan deskripsi materi manual berikut sebagai sumber: ${v.materi||'(tidak ada; gunakan data RPM atau konteks modul yang tersedia)'}. Jumlah ${v.jumlah} butir/aktivitas. Level: ${v.level}. Jenis: ${v.jenis}. Soal bergambar: ${v.gambar}; target ${v.jmlgambar} soal bergambar bila relevan. LitNum: ${v.litnum}. Kesulitan: ${v.kesulitan}. Diferensiasi: ${v.diferensiasi}. ${v.cat?'Catatan guru: '+v.cat:''}
+WAJIB membaca RPM sebagai sumber utama jika tersedia dan mempertahankan materi, tujuan pembelajaran, konteks, serta urutan pengalaman belajar. Jangan membuat LKPD yang tidak terkait sumber.
+FORMAT OUTPUT: tulis seperti LKPD yang benar-benar dibuat guru, bukan seperti artikel AI. Gunakan bahasa instruksional yang singkat dan natural. Hindari LaTeX, simbol aneh, emoji, tanda dolar, backslash, panah, dan dekorasi yang tidak diperlukan. Gunakan penomoran biasa 1., 2., 3. dan seterusnya.
+Keluarkan: # LKPD; identitas singkat (nama, kelas, tanggal); tujuan; petunjuk; alat/bahan bila perlu; kemudian tugas/soal. Setiap butir satu blok. Untuk pilihan jawaban, tulis A., B., C., D. masing-masing pada baris sendiri. Jika soal memerlukan gambar, buat soal yang memang dapat didukung gambar. Gunakan label sederhana [C1] sampai [C6] dan [Literasi], [Numerasi], atau [LitNum] bila relevan, bukan simbol dekoratif. Numerasi hanya digunakan bila masuk akal untuk mapel/materi.
+Untuk soal bergambar, jika materi sumber menyediakan gambar, gunakan gambar tersebut. Jika tidak tersedia, tuliskan penanda yang jelas dan natural seperti "Gambar 1. Ilustrasi kegiatan..." lalu buat pertanyaan yang dapat dijawab dari gambar. Jangan mengarang detail visual yang tidak tersedia dalam sumber. Jika lingkungan AI mendukung pembuatan gambar, boleh menyarankan jenis gambar yang dibutuhkan, tetapi jangan membuat klaim bahwa gambar sudah tersedia bila belum ada.
+Jika jenis soal campuran, variasikan bentuk secara proporsional. Tambahkan ruang jawaban yang cukup secara tekstual.
+Setelah LKPD siswa, buat: ## Kunci / Pedoman Jawaban Guru; ## Rubrik Penilaian; ## Pemetaan Butir: No | Tujuan Pembelajaran | C1-C6 | Literasi/Numerasi | Bentuk | Skor. Jangan menambahkan materi yang tidak didukung sumber.`
 },
 {id:'sumatif',n:'8. Soal & Asesmen',s:'Soal',desc:'Ulangan harian, STS, SAS beserta kisi-kisi, kunci jawaban, dan rubrik.',
  f:[{k:'jenis',t:'sel',l:'Jenis',o:['Ulangan Harian','Sumatif Tengah Semester (STS)','Sumatif Akhir Semester (SAS)']},{k:'pg',t:'num',l:'Pilihan ganda',v:10},{k:'up',t:'num',l:'Uraian pendek',v:5},{k:'ul',t:'num',l:'Uraian panjang',v:0},{k:'cakupan',t:'area',l:'Materi/cakupan',ph:'Mis. Recount text, Simple Past Tense, 5W1H'},{k:'file',t:'file',l:'Bahan/RPM (opsional)'}],
- p:v=>`Susun soal ${v.jenis} kelas ${prof.kelas}: ${v.pg} pilihan ganda, ${v.up} uraian pendek, ${v.ul} uraian panjang. Cakupan: ${v.cakupan||'sesuai RPM/Prota yang diberikan'}. Urutan keluaran: (1) Kisi-kisi (tabel: No | TP | Materi | Indikator | Level kognitif | Bentuk | No. soal), (2) Naskah Soal untuk siswa, (3) Kunci Jawaban terpisah di bagian akhir, (4) Rubrik/pedoman penilaian dengan total skor 100. FORMAT NASKAH SOAL WAJIB: nomor soal berurutan 1., 2., 3. dan seterusnya; satu soal satu blok/paragraf; setiap opsi pilihan ganda ditulis pada baris/paragraf tersendiri dengan format A. ..., B. ..., C. ..., D. ...; TEPAT DI BAWAH OPSI D tuliskan satu baris ANS: A / ANS: B / ANS: C / ANS: D sesuai jawaban benar; setelah baris ANS beri jarak sebelum nomor soal berikutnya. Format ANS ini WAJIB dipertahankan karena naskah akan dikonversi ke RTF/BNK untuk impor ke Moodle. Jangan membuat opsi dalam satu paragraf yang sama. Untuk uraian tidak perlu ANS kecuali berupa jawaban singkat yang memang memiliki satu jawaban pasti. Hindari soal yang sama persis; sertakan teks bacaan lengkap bila soal merujuk teks.`}
+ p:v=>`Susun soal ${v.jenis} kelas ${prof.kelas}: ${v.pg} pilihan ganda, ${v.up} uraian pendek, ${v.ul} uraian panjang. Cakupan: ${v.cakupan||'sesuai RPM/Prota yang diberikan'}. Urutan keluaran: (1) Kisi-kisi (tabel: No | TP | Materi | Indikator | Level kognitif | Bentuk | No. soal), (2) Naskah Soal untuk siswa, (3) Kunci Jawaban terpisah di bagian akhir, (4) Rubrik/pedoman penilaian dengan total skor 100. FORMAT NASKAH SOAL WAJIB: nomor soal HARUS berurutan 1., 2., 3., 4. dan seterusnya tanpa pernah mengulang angka 1.; satu soal satu blok/paragraf; setiap opsi pilihan ganda ditulis pada baris/paragraf tersendiri dengan format A. ..., B. ..., C. ..., D. ...; TEPAT DI BAWAH OPSI D tuliskan satu baris ANS: A / ANS: B / ANS: C / ANS: D sesuai jawaban benar; setelah baris ANS beri jarak sebelum nomor soal berikutnya. Format ANS ini WAJIB dipertahankan karena naskah akan dikonversi ke RTF/BNK untuk impor ke Moodle. Jangan membuat opsi dalam satu paragraf yang sama. Untuk uraian tidak perlu ANS kecuali berupa jawaban singkat yang memang memiliki satu jawaban pasti. Hindari soal yang sama persis; sertakan teks bacaan lengkap bila soal merujuk teks.`}
 ];
 
 /* ---------- AI ---------- */
@@ -236,7 +233,24 @@ async function callAI(parts){
  throw last}
 
 /* ---------- Markdown, konteks, tanda tangan ---------- */
+function cleanAIText(s){
+ s=String(s||'').replace(/\r/g,'');
+ s=s.replace(/\$([^$\n]+)\$/g,'$1');
+ s=s.replace(/\\text\s*\{([^{}]*)\}/g,'$1').replace(/\\mathrm\s*\{([^{}]*)\}/g,'$1');
+ s=s.replace(/\\rightarrow|\\to|→|⇒|⟶/g,' menjadi ');
+ s=s.replace(/\\times|×/g,' x ');
+ s=s.replace(/\\geq|≥/g,' >= ').replace(/\\leq|≤/g,' <= ');
+ s=s.replace(/\\pm|±/g,' +/- ');
+ s=s.replace(/\\left|\\right/g,'');
+ s=s.replace(/\\\(|\\\)|\\\[|\\\]/g,'');
+ s=s.replace(/[ \t]{2,}/g,' ');
+ // Rapikan tanda dekoratif yang sering muncul dari keluaran AI.
+ s=s.replace(/[✨⭐🌟📌📚🎯📝🔹🔸]/g,'');
+ s=s.replace(/^\s*[•▪◦◆◇]+\s*/gm,'');
+ return s.trim();
+}
 function md(s){
+ s=cleanAIText(s);
  s=s.replace(/^```\w*\n?|```$/gm,'').trim();const L=s.split('\n');let o='',i=0;
  const inl=t=>esc(t).replace(/\*\*(.+?)\*\*/g,'<b>$1</b>').replace(/(^|[^*])\*(?!\s)(.+?)\*/g,'$1<i>$2</i>').replace(/&lt;br\s*\/?&gt;/g,'<br>');
  const cells=l=>l.trim().replace(/^\||\|$/g,'').split('|').map(c=>c.trim());
@@ -317,7 +331,7 @@ function module(m){
  const d=data[m.id];
  $('#main').innerHTML=noKey()+'<div class="card form noprint"><h3 style="margin-bottom:4px">Isi data dokumen</h3><div class="grid">'+m.f.map(fld).join('')+'</div><div class="row" style="margin-top:14px"><button class="btn" id="go">'+(d?'Susun ulang dengan AI':'Susun dengan AI')+'</button>'+(m.id==='rpm'&&d?'<button class="btn ghost" id="nextRpm">➜ Buat Pertemuan Berikutnya</button>':'')+'<span class="muted" id="st"></span></div></div>'+
  (m.id==='rpm'?'<div class="banner"><b>Alur berkesinambungan:</b> gunakan <b>➜ Buat Pertemuan Berikutnya</b> setelah RPM selesai. Nomor pertemuan dinaikkan dan konteks RPM sebelumnya dibawa ke generator berikutnya.</div>':'')+
- (m.id==='rpm'&&data.rpmHistory?.length?'<div class="card noprint"><h3>Riwayat Rangkaian RPM</h3><p class="muted">Riwayat disimpan agar setiap pertemuan tetap terlacak.</p>'+data.rpmHistory.map(x=>'<div class="pr"><span class="tag">'+esc(x.pert||'?')+'</span><div><b>Pertemuan '+esc(x.pert||'?')+(x.unit?' · '+esc(x.unit):'')+'</b><small>'+esc(x.materi||'')+' · '+(x.ts?new Date(x.ts).toLocaleString('id-ID'):'')+'</small></div></div>').join('')+'</div>':'')+
+ (m.id==='rpm'&&data.rpmHistory?.length?'<div class="card noprint"><h3>Riwayat Rangkaian RPM</h3><p class="muted">Setiap RPM tersimpan sebagai pertemuan tersendiri. Pilih <b>Buka</b> untuk mengakses kembali RPM lama atau <b>Lanjutkan</b> untuk menjadikannya pijakan pertemuan berikutnya.</p>'+data.rpmHistory.map((x,i)=>'<div class="pr" style="align-items:center"><span class="tag">'+esc(x.pert||'?')+'</span><div style="flex:1"><b>Pertemuan '+esc(x.pert||'?')+(x.unit?' · '+esc(x.unit):'')+'</b><small>'+esc(x.materi||'')+' · '+(x.ts?new Date(x.ts).toLocaleString('id-ID'):'')+'</small></div><button class="btn ghost rpmOpen" data-rpm-ts="'+esc(x.ts||'')+'">Buka</button><button class="btn ghost rpmNextHist" data-rpm-ts="'+esc(x.ts||'')+'">Lanjutkan</button></div>').join('')+'</div>':'')+
  '<div class="card"><div class="row noprint" style="margin-bottom:10px"><h3 style="margin:0;flex:1">Hasil <span class="muted">(klik teks untuk mengedit; tersimpan otomatis)</span></h3><button class="btn ghost" id="xw">Word</button><button class="btn ghost" id="xx">Excel</button><button class="btn ghost" id="xp">Cetak / PDF</button><button class="btn ghost" id="xc">Salin</button></div><div id="out" contenteditable="true">'+(d?d.html:'<p class="muted">Belum ada hasil. Isi form di atas lalu tekan tombol Susun dengan AI.</p>')+'</div></div>';
  const out=$('#out');
  out.oninput=()=>{const c=out.cloneNode(true);c.querySelector('.sig')?.remove();data[m.id]={...(data[m.id]||{}),html:c.innerHTML.replace(/<p style="text-align:center">.*?<\/p>/,'')};if(!data[m.id].html)return;LS.set(K.data,data)};
@@ -337,6 +351,17 @@ function module(m){
  if(d)out.innerHTML=head(m)+d.html+sig();
  $('#xw').onclick=()=>exportWord(m);$('#xx').onclick=()=>exportExcel(m);$('#xp').onclick=()=>doPrint(m);
  $('#xc').onclick=()=>navigator.clipboard.writeText(out.innerText).then(()=>toast('Teks disalin'));
+ if(m.id==='rpm'){
+  document.querySelectorAll('.rpmOpen').forEach(b=>b.onclick=()=>{
+   const x=(data.rpmHistory||[]).find(z=>String(z.ts)===b.dataset.rpmTs);if(!x)return;
+   data.rpm={...x};LS.set(K.data,data);module(m);toast('RPM Pertemuan '+(x.pert||'?')+' dibuka kembali.');
+  });
+  document.querySelectorAll('.rpmNextHist').forEach(b=>b.onclick=()=>{
+   const x=(data.rpmHistory||[]).find(z=>String(z.ts)===b.dataset.rpmTs);if(!x)return;
+   data.rpm={...x};LS.set(K.data,data);module(m);
+   setTimeout(()=>$('#nextRpm')?.click(),50);
+  });
+ }
  if(m.id==='rpm'&&d)$('#nextRpm').onclick=()=>{
   const cur=+($('#f_pert').value||d.pert||1)||1;
   $('#f_pert').value=String(cur+1);
@@ -558,7 +583,8 @@ B.tp=n=>{const body=[...cover_('',['CP, TP, ATP, PROTA','KURIKULUM MENDALAM']),.
  n.filter(x=>x.k==='t').forEach(t=>body.push(gTbl_(t.rows,9445,{grid:t.rows[0].length===6?[506,1580,1716,2799,1701,1137]:undefined,splitCols:[3],numCols:[0,5],hdrH:0})));
  body.push(p_('',{}),sig_([4725,4720],'Arial',22,{al:'left',gap:900}));return{page:pgA4(1701,1134,1134,1701),font:'Arial',sz:22,body}};
 B.kktp=n=>{const body=[...cover_('', ['KRITERIA KETERCAPAIAN TUJUAN PEMBELAJARAN (KKTP)','KURIKULUM MENDALAM']),...identBlock_('KRITERIA KETERCAPAIAN TUJUAN PEMBELAJARAN (KKTP)')];
- n.forEach(x=>{if(x.k==='h')body.push(p_(x.text,{b:true,sb:120,sa:60,keep:true}));else if(x.k==='p')body.push(p_(x.runs,{al:'both',line:276,sa:80}));else if(x.k==='l')x.items.forEach((it,i)=>body.push(p_([{x:(x.ord?(i+1)+'.':'•')+'\t'},...it.runs],{il:465,hang:360,al:'both'})));else if(x.k==='t')body.push(gTbl_(x.rows,9445,{splitCols:[1],hdrH:0,hdrFill:'0789DF',secFill:'DCEEFF'}),p_('',{}))});
+ const dup=/^(kriteria ketercapaian tujuan pembelajaran|guru\s*:|mata pelajaran\s*:|fase\s*\/\s*kelas\s*:|fase\/kelas\s*:|tahun pelajaran\s*:|semester\s*:)/i;
+ n.forEach(x=>{if(x.k==='h'){if(!dup.test(x.text.trim()))body.push(p_(x.text,{b:true,sb:120,sa:60,keep:true}));}else if(x.k==='p'){if(!dup.test(x.text.trim()))body.push(p_(x.runs,{al:'both',line:276,sa:80}));}else if(x.k==='l')x.items.forEach((it,i)=>body.push(p_([{x:(x.ord?(i+1)+'.':'')+'\t'},...it.runs],{il:465,hang:360,al:'both'})));else if(x.k==='t')body.push(gTbl_(x.rows,9445,{splitCols:[1],hdrH:0,hdrFill:'0789DF',secFill:'DCEEFF'}),p_('',{}))});
  body.push(p_('',{}),sig_([4536,4536],'Arial',22,{al:'left'}));return{page:pgA4(1701,1134,1134,1701),font:'Arial',sz:22,body}};
 /* ---- Promes ---- */
 const BLN_G=['Juli','Agustus','September','Oktober','November','Desember'],BLN_N=['Januari','Februari','Maret','April','Mei','Juni'];
@@ -651,8 +677,9 @@ function appendAssessment_(body,n,F,sz,mode){
     const t=clean(it.text),op=option(t);
     if(op){pushText([{x:op[1].toUpperCase()+'. ',b:true},{x:op[2]}],null,{il:500,sa:35});return;}
     const num=numbered(t);
+    if(mode==='exam' && x.ord){qNo++;pushText([{x:qNo+'. ',b:true},{x:(num?num[1]:t)}],null,{sb:50,sa:55});return;}
     if(num){if(inQuestions)qNo++;pushText([{x:(inQuestions?qNo:i+1)+'. ',b:true},{x:num[1]}],null,{sb:50,sa:55});}
-    else pushText([{x:(x.ord?i+1+'.':'•')+'\t'},...(it.runs||[{x:t}])],null,{il:465,hang:360,sa:55});
+    else pushText([{x:(x.ord?i+1+'.':'')+'\t'},...(it.runs||[{x:t}])],null,{il:465,hang:360,sa:55});
    });continue;
   }
   if(x.k==='t')body.push(gTbl_(x.rows,9072,{font:F,sz,hdrFill:'0789DF',secFill:'DCEEFF',hdrH:0}),p_('',{}));
