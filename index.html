@@ -76,8 +76,9 @@ main{min-width:0}
 
 <script>
 const $=s=>document.querySelector(s);
-const LS={get:(k,d)=>{try{const v=localStorage.getItem(k);return v==null?d:JSON.parse(v)}catch(e){return d}},set:(k,v)=>localStorage.setItem(k,JSON.stringify(v))};
+const LS={get:(k,d)=>{try{const v=localStorage.getItem(k);return v==null?d:JSON.parse(v)}catch(e){return d}},mute:false,set:(k,v)=>{localStorage.setItem(k,JSON.stringify(v));if(!LS.mute&&SYNCK.includes(k)){localStorage.setItem('spena_ts',Date.now());schedPush()}}};
 const K={prof:'spena_profil_v3',data:'spena_data_v3',key:'spena_apikey',model:'spena_model',auth:'spena_auth_v3'};
+const SYNCK=[K.prof,K.data,K.auth,K.model,K.key];
 const DEF={nama:'Feri Sujatmiko, S.Pd.',nip:'',sekolah:'SMPN 6 Blitar',mapel:'Bahasa Inggris',fase:'D',kelas:'VIII',ta:'2026/2027',kepsek:'Juli Setyanto, S.Pd., M.Pd.',nipKepsek:'',kota:'Blitar',jp:'4'};
 let prof={...DEF,...LS.get(K.prof,{})}, data=LS.get(K.data,{}), tab='home', busy=false;
 
@@ -215,7 +216,15 @@ function settings(){
  [['nama','Nama guru'],['nip','NIP guru'],['sekolah','Sekolah'],['mapel','Mata pelajaran'],['fase','Fase'],['kelas','Kelas'],['ta','Tahun pelajaran'],['jp','JP per minggu'],['kepsek','Kepala sekolah'],['nipKepsek','NIP kepala sekolah'],['kota','Kota (tanda tangan)']].map(([k,l])=>'<div><label for="p_'+k+'">'+l+'</label><input id="p_'+k+'" value="'+esc(prof[k])+'"></div>').join('')+
  '</div><button class="btn" id="sp" style="margin-top:14px">Simpan profil</button></div>'+
  '<div class="card"><h2>Koneksi AI (Gemini)</h2><p class="muted">Buat API key gratis di Google AI Studio (aistudio.google.com), lalu tempel di sini. Key disimpan hanya di browser ini, tidak dikirim ke GitHub. Jangan menulis key langsung di dalam file index.html.</p><div class="grid"><div><label for="k1">API key</label><input id="k1" type="password" value="'+esc(LS.get(K.key,''))+'" autocomplete="off"></div><div><label for="k2">Nama model</label><input id="k2" value="'+esc(LS.get(K.model,'gemini-2.5-flash'))+'"></div></div><div class="row" style="margin-top:14px"><button class="btn" id="sk">Simpan</button><button class="btn ghost" id="tk">Tes koneksi</button></div></div>'+
+ '<div class="card"><h2>Sinkronisasi antar perangkat</h2><p class="muted">Data (profil, hasil dokumen, login) tersimpan di browser tiap perangkat. Hubungkan ke Google Drive Anda agar semua perangkat memakai data yang sama.</p><div class="grid"><div><label for="s1">URL Web App (Google Apps Script)</label><input id="s1" value="'+esc((syncCfg()||{}).u||'')+'" placeholder="https://script.google.com/macros/s/.../exec"></div><div><label for="s2">Kode rahasia</label><input id="s2" type="password" value="'+esc((syncCfg()||{}).c||'')+'" autocomplete="off"></div></div><label style="display:flex;gap:8px;align-items:center;font-weight:400;margin-top:12px"><input type="checkbox" id="s3" style="width:auto" '+((syncCfg()||{}).key?'checked':'')+'> Sertakan API key Gemini (tersimpan di Google Drive Anda)</label><div class="row" style="margin-top:14px"><button class="btn" id="ss">Simpan & uji</button><button class="btn ghost" id="su">Unggah dari perangkat ini</button><button class="btn ghost" id="sd">Ambil dari cloud</button><button class="btn ghost" id="sl">Salin tautan perangkat baru</button></div><p class="muted" id="sst" style="margin-top:10px">'+(syncCfg()?'Otomatis mengunggah 2-3 detik setelah ada perubahan. Terakhir: '+(LS.get('spena_last',0)?new Date(LS.get('spena_last')).toLocaleString('id-ID'):'belum pernah'):'Belum terhubung.')+'</p><details style="margin-top:12px"><summary style="cursor:pointer;font-weight:600">Cara membuat (sekali saja, sekitar 3 menit)</summary><ol class="muted"><li>Buka script.google.com, pilih Proyek baru.</li><li>Hapus isi awal, tempel kode di bawah, lalu ganti <b>GANTI_DENGAN_KODE_RAHASIA_ANDA</b> dengan kode panjang pilihan Anda.</li><li>Klik Deploy, Deployment baru, jenis <b>Aplikasi web</b>. Jalankan sebagai: <b>Saya</b>. Yang memiliki akses: <b>Siapa saja</b>. Deploy, lalu izinkan akses Drive.</li><li>Salin URL yang berakhiran /exec ke kolom di atas, isi kode rahasia yang sama, lalu tekan Simpan & uji dan Unggah dari perangkat ini.</li><li>Di perangkat lain, tekan Salin tautan perangkat baru di sini, lalu buka tautan itu di perangkat tujuan. Tautan berisi kode rahasia, jadi kirim hanya ke diri sendiri.</li></ol><pre id="gs" style="white-space:pre-wrap;background:var(--bg);border-radius:8px;padding:12px;font-size:12px;overflow:auto">'+esc(GS)+'</pre><button class="btn ghost" id="sc">Salin kode</button></details></div>'+
  '<div class="card"><h2>Ganti login</h2><p class="muted">Ini hanya kunci tampilan. Siapa pun yang membuka kode halaman bisa melewatinya, jadi jangan menyimpan data rahasia siswa di sini.</p><div class="grid"><div><label for="a1">Username baru</label><input id="a1"></div><div><label for="a2">Password baru</label><input id="a2" type="password"></div></div><button class="btn" id="sa" style="margin-top:14px">Simpan login</button></div>';
+
+ const rd=()=>({u:$('#s1').value.trim(),c:$('#s2').value,key:$('#s3').checked});
+ $('#ss').onclick=async()=>{const o=rd();if(!/^https:\/\/script\.google\.com\//.test(o.u)||o.c.length<6)return toast('Isi URL Web App (https://script.google.com/...) dan kode rahasia min. 6 karakter',1);LS.set('spena_sync',o);try{const j=await sCall('load');sStat(j.payload?'Terhubung. Ada data di cloud.':'Terhubung. Cloud masih kosong, tekan Unggah dari perangkat ini.');toast('Koneksi berhasil')}catch(e){sStat(e.message,1);toast(e.message,1)}};
+ $('#su').onclick=async()=>{const o=rd();LS.set('spena_sync',o);localStorage.setItem('spena_ts',Date.now());await push(false)};
+ $('#sd').onclick=async()=>{if(!confirm('Data di perangkat ini akan diganti dengan data dari cloud. Lanjutkan?'))return;LS.set('spena_sync',rd());try{const r=await pull(true);if(r==='kosong')return toast('Cloud masih kosong',1);toast('Data dimuat dari cloud');show()}catch(e){toast(e.message,1)}};
+ $('#sl').onclick=()=>{const o=rd();if(!o.u)return toast('Isi dan simpan koneksi dulu',1);LS.set('spena_sync',o);const t=location.origin+location.pathname+'#s='+btoa(unescape(encodeURIComponent(JSON.stringify(o))));navigator.clipboard.writeText(t).then(()=>toast('Tautan disalin. Buka di perangkat baru.'))};
+ $('#sc').onclick=()=>navigator.clipboard.writeText(GS).then(()=>toast('Kode disalin'));
  $('#sp').onclick=()=>{Object.keys(DEF).forEach(k=>prof[k]=$('#p_'+k).value.trim());LS.set(K.prof,prof);nav();toast('Profil disimpan')};
  $('#sk').onclick=()=>{LS.set(K.key,$('#k1').value.trim());LS.set(K.model,$('#k2').value.trim()||'gemini-2.5-flash');toast('Pengaturan AI disimpan')};
  $('#tk').onclick=async()=>{$('#sk').click();try{await callAI([{text:'Balas hanya dengan kata: siap'}]);toast('Koneksi berhasil')}catch(e){toast(e.message,1)}};
@@ -232,6 +241,52 @@ function exportExcel(m){
  const wb=XLSX.utils.book_new();t.forEach((x,i)=>XLSX.utils.book_append_sheet(wb,XLSX.utils.table_to_sheet(x),'Tabel '+(i+1)));
  XLSX.writeFile(wb,fname(m,'xlsx'));toast('Excel diunduh')}
 
+const GS=`const SECRET = 'GANTI_DENGAN_KODE_RAHASIA_ANDA';
+const NAMA = 'spena_sync.json';
+function out(o){return ContentService.createTextOutput(JSON.stringify(o)).setMimeType(ContentService.MimeType.JSON)}
+function doPost(e){
+  const b = JSON.parse(e.postData.contents);
+  if (b.secret !== SECRET) return out({ok:false, error:'Kode rahasia salah'});
+  const it = DriveApp.getFilesByName(NAMA);
+  const f = it.hasNext() ? it.next() : null;
+  if (b.action === 'save') {
+    const s = JSON.stringify(b.payload);
+    if (f) f.setContent(s); else DriveApp.createFile(NAMA, s);
+    return out({ok:true});
+  }
+  if (b.action === 'load') {
+    return out({ok:true, payload: f ? JSON.parse(f.getBlob().getDataAsString()) : null});
+  }
+  return out({ok:false, error:'Aksi tidak dikenal'});
+}`;
+let pushT;
+const syncCfg=()=>LS.get('spena_sync',null);
+function schedPush(){const c=syncCfg();if(!c||!c.u||LS.mute)return;clearTimeout(pushT);pushT=setTimeout(()=>push(true),2500)}
+function bundle(){const c=syncCfg()||{};const b={ts:+localStorage.getItem('spena_ts')||Date.now(),prof,data,auth:LS.get(K.auth,null),model:LS.get(K.model,'gemini-2.5-flash')};if(c.key)b.key=LS.get(K.key,'');return b}
+async function sCall(action,payload){
+ const c=syncCfg();if(!c||!c.u)throw new Error('URL sinkronisasi belum diisi');
+ const r=await fetch(c.u,{method:'POST',headers:{'Content-Type':'text/plain;charset=utf-8'},body:JSON.stringify({secret:c.c,action,payload})});
+ let j;try{j=await r.json()}catch(e){throw new Error('Respons bukan dari Apps Script. Pastikan akses deployment "Anyone" dan URL berakhiran /exec')}
+ if(!j.ok)throw new Error(j.error||'Gagal');return j}
+function sStat(t,e){const s=document.getElementById('sst');if(s){s.textContent=t;s.className='muted'+(e?' err':'')}}
+async function push(quiet){
+ try{const b=bundle();await sCall('save',b);localStorage.setItem('spena_ts',b.ts);LS.set('spena_last',Date.now());sStat('Terkirim ke cloud '+new Date().toLocaleTimeString('id-ID'));if(!quiet)toast('Data diunggah ke cloud')}
+ catch(e){sStat(e.message,1);if(!quiet)toast(e.message,1);else toast('Sinkronisasi gagal: '+e.message,1)}}
+async function pull(force){
+ const j=await sCall('load');const p=j.payload;if(!p)return 'kosong';
+ const lt=+localStorage.getItem('spena_ts')||0;if(!force&&p.ts<=lt)return 'sama';
+ LS.mute=true;try{
+  prof={...DEF,...p.prof};data=p.data||{};LS.set(K.prof,prof);LS.set(K.data,data);
+  if(p.auth)LS.set(K.auth,p.auth);if(p.model)LS.set(K.model,p.model);if(p.key)LS.set(K.key,p.key);
+  localStorage.setItem('spena_ts',p.ts)}finally{LS.mute=false}
+ return 'baru'}
+async function syncStart(){
+ const c=syncCfg();if(!c||!c.u)return;
+ try{const r=await pull(false);if(r==='baru'){toast('Data terbaru dari cloud dimuat');if(sessionStorage.getItem('spena_in')==='1')show()}}catch(e){toast('Sinkronisasi gagal: '+e.message,1)}}
+(function(){const m=location.hash.match(/^#s=(.+)$/);if(!m)return;
+ try{const o=JSON.parse(decodeURIComponent(escape(atob(m[1]))));LS.set('spena_sync',o);history.replaceState(null,'',location.pathname+location.search);
+  sCall('load').then(()=>pull(true)).then(()=>{toast('Perangkat terhubung. Data dimuat dari cloud.');if(sessionStorage.getItem('spena_in')==='1')show()}).catch(e=>toast(e.message,1))}catch(e){}})();
+
 /* ---------- Mulai ---------- */
 async function boot(){
  const ok=sessionStorage.getItem('spena_in')==='1';
@@ -243,6 +298,7 @@ $('#lf').onsubmit=async e=>{e.preventDefault();
  if(!good)return toast('Username atau password salah',1);
  sessionStorage.setItem('spena_in','1');$('#lp').value='';boot()};
 boot();
+syncStart();
 </script>
 </body>
 </html>
