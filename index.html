@@ -329,11 +329,13 @@ function module(m){
   f.t==='file'?'<input type="file" id="'+id+'" accept="image/*,.pdf,.xlsx,.xls,.csv,.docx,.txt">':
   '<input id="'+id+'" type="'+(f.t==='num'?'number':'text')+'" value="'+esc(v)+'" placeholder="'+esc(f.ph||'')+'">')+'</div>'};
  const d=data[m.id];
- $('#main').innerHTML=noKey()+'<div class="card form noprint"><h3 style="margin-bottom:4px">Isi data dokumen</h3><div class="grid">'+m.f.map(fld).join('')+'</div><div class="row" style="margin-top:14px"><button class="btn" id="go">'+(d?'Susun ulang dengan AI':'Susun dengan AI')+'</button>'+(m.id==='rpm'&&d?'<button class="btn ghost" id="nextRpm">➜ Buat Pertemuan Berikutnya</button>':'')+'<span class="muted" id="st"></span></div></div>'+
- (m.id==='rpm'?'<div class="banner"><b>Alur berkesinambungan:</b> gunakan <b>➜ Buat Pertemuan Berikutnya</b> setelah RPM selesai. Nomor pertemuan dinaikkan dan konteks RPM sebelumnya dibawa ke generator berikutnya.</div>':'')+
- (m.id==='rpm'&&data.rpmHistory?.length?'<div class="card noprint"><h3>Riwayat Rangkaian RPM</h3><p class="muted">Setiap RPM tersimpan sebagai pertemuan tersendiri. Pilih <b>Buka</b> untuk mengakses kembali RPM lama atau <b>Lanjutkan</b> untuk menjadikannya pijakan pertemuan berikutnya.</p>'+data.rpmHistory.map((x,i)=>'<div class="pr" style="align-items:center"><span class="tag">'+esc(x.pert||'?')+'</span><div style="flex:1"><b>Pertemuan '+esc(x.pert||'?')+(x.unit?' · '+esc(x.unit):'')+'</b><small>'+esc(x.materi||'')+' · '+(x.ts?new Date(x.ts).toLocaleString('id-ID'):'')+'</small></div><button class="btn ghost rpmOpen" data-rpm-ts="'+esc(x.ts||'')+'">Buka</button><button class="btn ghost rpmNextHist" data-rpm-ts="'+esc(x.ts||'')+'">Lanjutkan</button></div>').join('')+'</div>':'')+
- '<div class="card"><div class="row noprint" style="margin-bottom:10px"><h3 style="margin:0;flex:1">Hasil <span class="muted">(klik teks untuk mengedit; tersimpan otomatis)</span></h3><button class="btn ghost" id="xw">Word</button><button class="btn ghost" id="xx">Excel</button><button class="btn ghost" id="xp">Cetak / PDF</button><button class="btn ghost" id="xc">Salin</button></div><div id="out" contenteditable="true">'+(d?d.html:'<p class="muted">Belum ada hasil. Isi form di atas lalu tekan tombol Susun dengan AI.</p>')+'</div></div>';
+ const hist=(m.id==='rpm'&&data.rpmHistory?.length)?'<div class="card noprint" id="rpmHistoryCard"><div class="ph"><h3>Rangkaian Pertemuan RPM</h3><button class="btn ghost" id="delAllRpm">Hapus Semua Pertemuan</button></div><p class="muted">Pertemuan tersusun dari yang paling awal. Buka/Edit untuk mengubah kembali atau Lanjutkan untuk membuat pertemuan berikutnya.</p>'+data.rpmHistory.slice().sort((a,b)=>(+a.pert||999)-(+b.pert||999)).map((x,i)=>'<div class="pr" style="align-items:center"><span class="tag">'+esc(x.pert||i+1)+'</span><div style="flex:1"><b>Pertemuan '+esc(x.pert||i+1)+(x.unit?' · '+esc(x.unit):'')+'</b><small>'+esc(x.materi||'')+'</small></div><button class="btn ghost rpmOpen" data-rpm-ts="'+esc(x.ts||'')+'">Buka/Edit</button><button class="btn ghost rpmNextHist" data-rpm-ts="'+esc(x.ts||'')+'">Lanjutkan</button><button class="btn ghost rpmDel" data-rpm-ts="'+esc(x.ts||'')+'">Hapus</button></div>').join('')+'</div>':'';
+ $('#main').innerHTML=noKey()+hist+'<div class="card form noprint"><div class="ph"><h3 style="margin:0">Isi data dokumen</h3><div class="row"><button class="btn ghost" id="editDoc">Edit Data</button><button class="btn ghost" id="resetDoc">Hapus / Reset</button></div></div><div class="grid">'+m.f.map(fld).join('')+'</div><div class="row" style="margin-top:14px"><button class="btn" id="go">'+(d?'Generate Ulang dengan AI':'Generate dengan AI')+'</button>'+(m.id==='rpm'&&d?'<button class="btn ghost" id="nextRpm">Buat Pertemuan Berikutnya</button>':'')+'<span class="muted" id="st"></span></div></div>'+(m.id==='rpm'?'<div class="banner"><b>Rangkaian RPM:</b> pertemuan disimpan di bagian paling atas agar mudah dibuka, diedit, dilanjutkan, atau dihapus.</div>':'')+'<div class="card"><div class="row noprint" style="margin-bottom:10px"><h3 style="margin:0;flex:1">Hasil <span class="muted">(klik teks untuk mengedit; tersimpan otomatis)</span></h3><button class="btn ghost" id="xw">Word</button><button class="btn ghost" id="xx">Excel</button><button class="btn ghost" id="xp">Cetak / PDF</button><button class="btn ghost" id="xc">Salin</button></div><div id="out" contenteditable="true">'+(d?d.html:'<p class="muted">Belum ada hasil. Isi form di atas lalu tekan tombol Generate dengan AI.</p>')+'</div></div>';
  const out=$('#out');
+ const fillSaved=()=>{if(!d)return;m.f.forEach(f=>{const e=$('#f_'+f.k),v=d[f.k];if(e&&v!=null&&f.t!=='file')e.value=v;});};
+ fillSaved();
+ $('#editDoc').onclick=()=>{document.querySelector('.form')?.scrollIntoView({behavior:'smooth',block:'start'});toast('Mode edit aktif. Ubah data lalu pilih Generate Ulang dengan AI.');};
+ $('#resetDoc').onclick=()=>{if(!confirm('Hapus hasil generator ini dan mulai dari awal?'))return;delete data[m.id];if(m.id==='rpm')data.rpmHistory=[];LS.set(K.data,data);module(m);};
  out.oninput=()=>{const c=out.cloneNode(true);c.querySelector('.sig')?.remove();data[m.id]={...(data[m.id]||{}),html:c.innerHTML.replace(/<p style="text-align:center">.*?<\/p>/,'')};if(!data[m.id].html)return;LS.set(K.data,data)};
  if(d&&!d.html.includes('class="sig"')){}
  $('#go').onclick=async()=>{
@@ -342,7 +344,7 @@ function module(m){
    const v={};m.f.forEach(f=>{const e=$('#f_'+f.k);v[f.k]=f.t==='file'?e.files[0]:e.value});
    const fp=await fileParts(v.file);
    const text=await callAI([{text:m.p(v)+ctx(m.id)},...fp]);
-   data[m.id]={html:md(text),ts:Date.now(),sem:v.sem,materi:v.materi,alok:v.wkt?(v.wkt+(v.pert?' (Pertemuan '+v.pert+')':'')):'',pert:v.pert,totalPert:v.totalPert,unit:v.unit,continuity:v.continuity,lit:v.lit,litfocus:v.litfocus,prev:v.prev,nextSuggested:(v.pert&&v.totalPert&&+v.pert<+v.totalPert)?('Pertemuan '+(+v.pert+1)):''};
+   data[m.id]={html:md(text),ts:Date.now(),...v,sem:v.sem,materi:v.materi,alok:v.wkt?(v.wkt+(v.pert?' (Pertemuan '+v.pert+')':'')):'',pert:v.pert,totalPert:v.totalPert,unit:v.unit,continuity:v.continuity,lit:v.lit,litfocus:v.litfocus,prev:v.prev,nextSuggested:(v.pert&&v.totalPert&&+v.pert<+v.totalPert)?('Pertemuan '+(+v.pert+1)):''};
     if(m.id==='rpm'){data.rpmHistory=data.rpmHistory||[];data.rpmHistory=data.rpmHistory.filter(x=>x.ts!==data.rpm.ts);data.rpmHistory.unshift({...data.rpm});data.rpmHistory=data.rpmHistory.slice(0,20);}
     LS.set(K.data,data);
    out.innerHTML=head(m)+data[m.id].html+sig();nav();toast('Selesai. Periksa isinya lalu edit seperlunya.')
@@ -352,6 +354,8 @@ function module(m){
  $('#xw').onclick=()=>exportWord(m);$('#xx').onclick=()=>exportExcel(m);$('#xp').onclick=()=>doPrint(m);
  $('#xc').onclick=()=>navigator.clipboard.writeText(out.innerText).then(()=>toast('Teks disalin'));
  if(m.id==='rpm'){
+  $('#delAllRpm')?.addEventListener('click',()=>{if(!confirm('Hapus seluruh riwayat RPM pertemuan?'))return;data.rpmHistory=[];delete data.rpm;LS.set(K.data,data);module(m);});
+  document.querySelectorAll('.rpmDel').forEach(b=>b.onclick=()=>{if(!confirm('Hapus RPM pertemuan ini?'))return;data.rpmHistory=(data.rpmHistory||[]).filter(z=>String(z.ts)!==b.dataset.rpmTs);if(data.rpm&&String(data.rpm.ts)===b.dataset.rpmTs)delete data.rpm;LS.set(K.data,data);module(m);});
   document.querySelectorAll('.rpmOpen').forEach(b=>b.onclick=()=>{
    const x=(data.rpmHistory||[]).find(z=>String(z.ts)===b.dataset.rpmTs);if(!x)return;
    data.rpm={...x};LS.set(K.data,data);module(m);toast('RPM Pertemuan '+(x.pert||'?')+' dibuka kembali.');
@@ -568,7 +572,7 @@ B.rpe=n=>{const jp=+prof.jp||4,tabs=n.filter(x=>x.k==='t'),F='Times New Roman';
 /* ---- CP ---- */
 function cover_(title,lines){const ia=(l,v)=>[l,v];return[...Array(6).fill(0).map(()=>p_('',{al:'center'})),{t:'img',w:1363980,h:1363980,al:'center'},p_('',{}),...lines.map(t=>p_(t,{al:'center',b:true,color:'3A0B4A',sa:200,line:276})),p_('',{}),p_('',{}),
  kv_([['Nama Sekolah',prof.sekolah],['Nama Penyusun',prof.nama],['NIP',prof.nip||'-'],['Mata Pelajaran',prof.mapel],['Fase / Kelas / Semester',IDENT_FASE]],[2550,200,4620],{bl:true,bv:true,ind:1701}),{t:'pb'}]}
-B.cp=n=>{const body=[...cover_('',['CAPAIAN PEMBELAJARAN (CP)','KURIKULUM DEEP LEARNING','(KURIKULUM MENDALAM)']),
+B.cp=n=>{const body=[...cover_('',['CAPAIAN PEMBELAJARAN (CP)']),
   p_('CAPAIAN PEMBELAJARAN',{al:'center',b:true}),p_('MATA PELAJARAN: '+prof.mapel.toUpperCase(),{al:'center',b:true,sb:60}),p_('(Keputusan BSKAP NOMOR 046/H/KR/2025)',{al:'center',b:true,sb:60,sa:240})];
  let hn=0;n.forEach(x=>{
   if(x.k==='h'){hn++;body.push(p_(hn+'. '+x.text.replace(/^[A-Z0-9]+[.)]\s*/,''),{b:true,al:'both',line:276,sa:200,keep:true}))}
@@ -690,7 +694,7 @@ function appendAssessment_(body,n,F,sz,mode){
 B.media=n=>{const body=[p_('MEDIA PEMBELAJARAN',{al:'center',b:true,sa:120})];
  n.forEach(x=>{if(x.k==='h')body.push(p_(x.text,{b:true,sb:120,sa:60,keep:true}));else if(x.k==='p')body.push(p_(x.runs,{al:'both',line:276,sa:80}));else if(x.k==='l')x.items.forEach((it,k)=>body.push(p_([{x:(x.ord?(k+1)+'.':'•')+'\t'},...it.runs],{il:465,hang:360,al:'both'})));else if(x.k==='t')body.push(gTbl_(x.rows,9072,{hdrH:0}),p_('',{}))});
  return{page:pgA4(1701,1134,1134,1701),font:'Arial',sz:22,body}};
-B.lkpd=n=>{const F='Arial',sz=22,body=[p_('LEMBAR KERJA PESERTA DIDIK (LKPD)',{al:'center',b:true,color:'3A0B4A',sa:120}),kv_([['Sekolah',prof.sekolah],['Mata Pelajaran',prof.mapel],['Kelas',prof.kelas],['Tahun Pelajaran',prof.ta]],[2200,200,6100],{bl:true,bv:true}),p_('',{})];
+B.lkpd=n=>{const F='Arial',sz=22,body=[...cover_('', ['LEMBAR KERJA PESERTA DIDIK (LKPD)']),p_('LEMBAR KERJA PESERTA DIDIK (LKPD)',{al:'center',b:true,color:'3A0B4A',sa:100,font:F,sz}),kv_([['Mata Pelajaran',prof.mapel],['Kelas / Semester',prof.kelas+' / '+((data.promes&&data.promes.sem==='Genap')?'Genap':'Ganjil')],['Materi Pokok',(data.rpm&&data.rpm.materi)||''],['Alokasi Waktu',(data.rpm&&data.rpm.alok)||''],['Nama Murid',''],['Kelas',prof.kelas],['Tanggal','']],[2500,200,5800],{bl:true,bv:true}),p_('',{})];
  appendAssessment_(body,n,F,sz,'worksheet');body.push(p_('',{}),sig_([4536,4538],F,22,{al:'left',gap:900}));return{page:pgA4(1701,1134,1134,1701),font:F,sz,body}};
  B.sumatif=n=>{const F='Arial',sz=22,body=[...cover_('', ['NASKAH SOAL ASESMEN / SUMATIF','KURIKULUM MENDALAM']),p_('NASKAH SOAL ASESMEN / SUMATIF',{al:'center',b:true,color:'3A0B4A',sa:100,font:F,sz}),kv_([['Sekolah',prof.sekolah],['Mata Pelajaran',prof.mapel],['Kelas',prof.kelas],['Tahun Pelajaran',prof.ta]],[2200,200,6100],{bl:true,bv:true}),p_('',{})];
  appendAssessment_(body,n,F,sz,'exam');return{page:pgA4(1134,1134,1134,1134),font:F,sz,body}};
