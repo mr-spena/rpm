@@ -51,7 +51,7 @@ input:focus,select:focus,textarea:focus,button:focus-visible,[contenteditable]:f
 main{min-width:0}
 .card{background:var(--card);border-radius:var(--r);padding:20px;margin-bottom:16px;box-shadow:0 2px 10px rgba(32,58,134,.05)}
 .grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:14px}
-.row{display:flex;gap:8px;flex-wrap:wrap;align-items:center}
+.row{display:flex;gap:8px;flex-wrap:wrap;align-items:center}.histTabs{gap:8px;padding-top:4px}.histTabs .btn{white-space:nowrap}.histTabs .btn[disabled]{opacity:.5;cursor:not-allowed}
 .banner{background:#fff4e2;border-radius:14px;padding:12px 16px;margin-bottom:16px}.banner a{color:var(--blue2);font-weight:700}
 /* dashboard */
 .hero{position:relative;overflow:hidden;display:flex;justify-content:space-between;align-items:center;gap:20px;flex-wrap:wrap;padding:30px 30px;border-radius:22px;margin-bottom:16px;background:linear-gradient(135deg,#d6e6ff,#e9f1ff 60%,#f2f7ff)}
@@ -101,9 +101,12 @@ main{min-width:0}
 @media print{
 html,body{background:#fff!important}
 #app,#login,#toast,#scrim{display:none!important}
-#pv{display:block;color:#000}
-#pv .pw{width:100%;border-collapse:collapse;border:0}
-#pv .pw>thead>tr>td,#pv .pw>tbody>tr>td,#pv .pw>tfoot>tr>td{border:0;padding:0}
+#pv{display:block;color:#000;width:100%;margin:0;padding:0}
+#pv .pc{width:auto;min-height:0}
+#pv table{break-inside:auto;page-break-inside:auto}
+#pv tr{break-inside:avoid;page-break-inside:avoid}
+#pv thead{display:table-header-group}
+#pv tfoot{display:table-footer-group}
 }
 </style>
 </head>
@@ -394,6 +397,27 @@ function home(){
  document.querySelectorAll('[data-go]').forEach(b=>b.onclick=()=>{tab=b.dataset.go;show()});
  $('#bk').onclick=()=>dl(new Blob([JSON.stringify({prof,data})],{type:'application/json'}),'cadangan_spena_'+new Date().toISOString().slice(0,10)+'.json');
  $('#rs').onchange=async e=>{try{const j=JSON.parse(await e.target.files[0].text());if(!j.data)throw 0;prof={...DEF,...j.prof};data=j.data;LS.set(K.prof,prof);LS.set(K.data,data);toast('Cadangan dipulihkan');show()}catch(x){toast('Berkas cadangan tidak valid',1)}}}
+function histKey_(id){return id==='rpm'?'rpmHistory':id==='promes'?'promesHistory':id==='lkpd'?'lkpdHistory':id==='sumatif'?'sumatifHistory':null}
+function histItems_(id){const k=histKey_(id);if(!k)return[];data[k]=Array.isArray(data[k])?data[k]:[];return data[k]}
+function migrateHistory_(id){const k=histKey_(id);if(!k)return[];const a=histItems_(id);if(!a.length&&data[id]&&data[id].html){const x={...data[id],ts:data[id].ts||Date.now()};if(id!=='rpm'&&id!=='promes')x.seq=1;a.push(x);data[k]=a;LS.set(K.data,data)}return a}
+function historyTitle_(id,x,i){
+ if(id==='rpm')return 'RPM '+(x.pert||i+1);
+ if(id==='promes')return x.sem==='Genap'?'Semester 2':'Semester 1';
+ return 'Hasil '+(x.seq||i+1);
+}
+function historySort_(id,a){return a.slice().sort((x,y)=>{
+  if(id==='promes')return(x.sem==='Ganjil'?1:2)-(y.sem==='Ganjil'?1:2);
+  if(id==='rpm')return(+x.pert||999)-(+y.pert||999);
+  return(+x.seq||0)-(+y.seq||0);
+ })}
+function saveHistoryEdit_(m,c){
+ const k=histKey_(m.id);if(!k)return;
+ const h=histItems_(m.id),ts=data[m.id]?.ts;
+ const i=h.findIndex(x=>String(x.ts)===String(ts));
+ if(i>=0)h[i]={...h[i],html:c};
+ else{const x={...(data[m.id]||{}),html:c,ts:ts||Date.now()};if(m.id!=='rpm'&&m.id!=='promes')x.seq=h.length+1;h.push(x)}
+ if(m.id==='promes')data[k]=h.slice(0,2);else if(m.id==='rpm')data[k]=h.slice(0,20);else data[k]=h.slice(-20);
+}
 function module(m){
  const fld=f=>{const id='f_'+f.k,v=f.v??'';return'<div><label for="'+id+'">'+f.l+'</label>'+(
   f.t==='area'?'<textarea id="'+id+'" placeholder="'+esc(f.ph||'')+'"></textarea>':
@@ -401,62 +425,64 @@ function module(m){
   f.t==='file'?'<input type="file" id="'+id+'" accept="image/*,.pdf,.xlsx,.xls,.csv,.docx,.txt">':
   '<input id="'+id+'" type="'+(f.t==='num'?'number':'text')+'" value="'+esc(v)+'" placeholder="'+esc(f.ph||'')+'">')+'</div>'};
  const d=data[m.id];
- const hist=m.id==='rpm'&&data.rpmHistory?.length?'<div class="card noprint"><div class="ph"><h3>Rangkaian Pertemuan RPM</h3><button class="btn ghost" id="delAllRpm">Hapus Semua Pertemuan</button></div><p class="muted">Pertemuan tersusun dari yang paling awal. Buka/Edit atau Lanjutkan ke pertemuan berikutnya.</p>'+data.rpmHistory.slice().sort((a,b)=>(+a.pert||999)-(+b.pert||999)).map((x,i)=>'<div class="pr" style="align-items:center"><span class="tag">'+esc(x.pert||i+1)+'</span><div style="flex:1"><b>Pertemuan '+esc(x.pert||i+1)+(x.unit?' · '+esc(x.unit):'')+'</b><small>'+esc(x.materi||'')+'</small></div><button class="btn ghost rpmOpen" data-rpm-ts="'+esc(x.ts||'')+'">Buka/Edit</button><button class="btn ghost rpmNextHist" data-rpm-ts="'+esc(x.ts||'')+'">Lanjutkan</button><button class="btn ghost rpmDel" data-rpm-ts="'+esc(x.ts||'')+'">Hapus</button></div>').join('')+'</div>':m.id==='promes'&&data.promesHistory?.length?'<div class="card noprint"><div class="ph"><h3>Riwayat Program Semester</h3><button class="btn ghost" id="delAllPromes">Hapus Riwayat</button></div><p class="muted">Promes tersimpan di sini. Hanya ada Semester 1 dan Semester 2.</p>'+data.promesHistory.slice().sort((a,b)=>(a.sem==='Ganjil'?1:2)-(b.sem==='Ganjil'?1:2)).map(x=>'<div class="pr" style="align-items:center"><span class="tag">'+(x.sem==='Ganjil'?'1':'2')+'</span><div style="flex:1"><b>Semester '+(x.sem==='Ganjil'?'1 (Ganjil)':'2 (Genap)')+'</b><small>Terakhir disimpan '+(x.ts?new Date(x.ts).toLocaleDateString('id-ID'):'')+'</small></div><button class="btn ghost promesOpen" data-promes-ts="'+esc(x.ts||'')+'">Buka/Edit</button>'+(x.sem==='Ganjil'&&!data.promesHistory.some(y=>y.sem==='Genap')?'<button class="btn ghost promesNextHist" data-promes-ts="'+esc(x.ts||'')+'">Lanjutkan Semester 2</button>':'')+'<button class="btn ghost promesDel" data-promes-ts="'+esc(x.ts||'')+'">Hapus</button></div>').join('')+'</div>':'';
-
- $('#main').innerHTML=noKey()+hist+'<div class="card form noprint"><div class="ph"><h3 style="margin:0">Isi data dokumen</h3><div class="row"><button class="btn ghost" id="editDoc">Edit Data</button><button class="btn ghost" id="resetDoc">Hapus / Reset</button></div></div><div class="grid">'+m.f.map(fld).join('')+'</div><div class="row" style="margin-top:14px"><button class="btn" id="go">'+(d?'Generate Ulang dengan AI':'Generate dengan AI')+'</button>'+(m.id==='rpm'&&d?'<button class="btn ghost" id="nextRpm">Buat Pertemuan Berikutnya</button>':'')+(m.id==='promes'&&d&&d.sem==='Ganjil'&&!((data.promesHistory||[]).some(x=>x.sem==='Genap'))?'<button class="btn ghost" id="nextPromes">Buat Semester 2</button>':'')+'<span class="muted" id="st"></span></div></div>'+(m.id==='rpm'?'<div class="banner"><b>Rangkaian RPM:</b> pertemuan disimpan di bagian paling atas agar mudah dibuka, diedit, dilanjutkan, atau dihapus.</div>':'')+'<div class="card"><div class="row noprint" style="margin-bottom:10px"><h3 style="margin:0;flex:1">Hasil <span class="muted">(klik teks untuk mengedit; tersimpan otomatis)</span></h3><button class="btn ghost" id="xw">Word</button><button class="btn ghost" id="xx">Excel</button><button class="btn ghost" id="xp">Cetak / PDF</button><button class="btn ghost" id="xc">Salin</button></div><div id="out" contenteditable="true">'+(d?d.html:'<p class="muted">Belum ada hasil. Isi form di atas lalu tekan tombol Generate dengan AI.</p>')+'</div></div>';
+ const hist=histKey_(m.id)?migrateHistory_(m.id):[];
+ const hs=historySort_(m.id,hist);
+ let histHtml='';
+ if(m.id==='promes'){
+   histHtml='<div class="card noprint"><div class="ph"><div><h3>Program Semester Tersimpan</h3><p class="muted" style="margin:3px 0 0">Pilih Semester 1 atau Semester 2 untuk membuka, memeriksa, dan mengedit hasil yang sudah dibuat.</p></div><button class="btn ghost" id="delAllPromes">Hapus Riwayat</button></div><div class="row histTabs">'+['Ganjil','Genap'].map((sem,i)=>{const x=hs.find(z=>z.sem===sem),active=x&&d&&String(x.ts)===String(d.ts);return'<button class="btn '+(active?'':'ghost')+' histTab" data-hist-ts="'+esc(x?.ts||'')+'" data-hist-sem="'+sem+'" '+(!x?'disabled':'')+'>Semester '+(i+1)+(x?'':' · belum dibuat')+'</button>'}).join('')+'</div></div>';
+ }else if(m.id==='rpm'){
+   histHtml=hs.length?'<div class="card noprint"><div class="ph"><div><h3>RPM Tersimpan</h3><p class="muted" style="margin:3px 0 0">Klik RPM 1, RPM 2, dan seterusnya untuk melihat atau mengedit hasil masing-masing pertemuan.</p></div><button class="btn ghost" id="delAllRpm">Hapus Semua RPM</button></div><div class="row histTabs">'+hs.map((x,i)=>'<button class="btn '+(d&&String(x.ts)===String(d.ts)?'':'ghost')+' histTab" data-hist-ts="'+esc(x.ts||'')+'">RPM '+esc(x.pert||i+1)+'</button>').join('')+'</div></div>':'<div class="card noprint"><div class="ph"><h3>RPM Tersimpan</h3></div><p class="muted">Setelah RPM dibuat, hasil akan muncul sebagai tab RPM 1, RPM 2, dan seterusnya.</p></div>';
+ }else if(hist.length){
+   histHtml='<div class="card noprint"><div class="ph"><div><h3>Riwayat Hasil Generate</h3><p class="muted" style="margin:3px 0 0">Pilih Hasil 1, Hasil 2, dan seterusnya untuk cek ulang atau mengedit perangkat yang sudah dibuat.</p></div><button class="btn ghost" id="delAllHist">Hapus Semua</button></div><div class="row histTabs">'+hs.map((x,i)=>'<button class="btn '+(d&&String(x.ts)===String(d.ts)?'':'ghost')+' histTab" data-hist-ts="'+esc(x.ts||'')+'">'+historyTitle_(m.id,x,i)+'</button>').join('')+'</div></div>';
+ }
+ $('#main').innerHTML=noKey()+histHtml+'<div class="card form noprint"><div class="ph"><h3 style="margin:0">Isi data dokumen</h3><div class="row"><button class="btn ghost" id="editDoc">Edit Data</button><button class="btn ghost" id="resetDoc">Hapus / Reset</button></div></div><div class="grid">'+m.f.map(fld).join('')+'</div><div class="row" style="margin-top:14px"><button class="btn" id="go">'+(d?'Generate Ulang dengan AI':'Generate dengan AI')+'</button>'+(m.id==='rpm'&&d?'<button class="btn ghost" id="nextRpm">Buat Pertemuan Berikutnya</button>':'')+(m.id==='promes'&&d&&d.sem==='Ganjil'&&!hs.some(x=>x.sem==='Genap')?'<button class="btn ghost" id="nextPromes">Buat Semester 2</button>':'')+'<span class="muted" id="st"></span></div></div>'+(m.id==='rpm'?'<div class="banner"><b>Rangkaian RPM:</b> hasil setiap pertemuan tersimpan sebagai tab RPM 1, RPM 2, dan seterusnya.</div>':'')+'<div class="card"><div class="row noprint" style="margin-bottom:10px"><h3 style="margin:0;flex:1">Hasil <span class="muted">(klik teks untuk mengedit; tersimpan otomatis)</span></h3><button class="btn ghost" id="xw">Word</button><button class="btn ghost" id="xx">Excel</button><button class="btn ghost" id="xp">Cetak / PDF</button><button class="btn ghost" id="xc">Salin</button></div><div id="out" contenteditable="true">'+(d?d.html:'<p class="muted">Belum ada hasil. Isi form di atas lalu tekan tombol Generate dengan AI.</p>')+'</div></div>';
  const out=$('#out');
  const fillSaved=()=>{if(!d)return;m.f.forEach(f=>{const e=$('#f_'+f.k),v=d[f.k];if(e&&v!=null&&f.t!=='file')e.value=v;});};
  fillSaved();
  $('#editDoc').onclick=()=>{document.querySelector('.form')?.scrollIntoView({behavior:'smooth',block:'start'});toast('Mode edit aktif. Ubah data lalu pilih Generate Ulang dengan AI.');};
- $('#resetDoc').onclick=()=>{if(!confirm('Hapus hasil generator ini dan mulai dari awal?'))return;delete data[m.id];if(m.id==='rpm')data.rpmHistory=[];if(m.id==='promes')data.promesHistory=[];LS.set(K.data,data);module(m);};
- out.oninput=()=>{const c=out.cloneNode(true);c.querySelector('.sig')?.remove();data[m.id]={...(data[m.id]||{}),html:c.innerHTML.replace(/<p style="text-align:center">.*?<\/p>/,'')};if(!data[m.id].html)return;LS.set(K.data,data)};
- if(d&&!d.html.includes('class="sig"')){}
+ $('#resetDoc').onclick=()=>{if(!confirm('Hapus hasil generator ini dan mulai dari awal?'))return;delete data[m.id];const k=histKey_(m.id);if(k)data[k]=[];LS.set(K.data,data);module(m);};
+ out.oninput=()=>{const c=out.cloneNode(true);c.querySelector('.sig')?.remove();const title=c.querySelector('p[style*="text-align:center"]');if(title)title.remove();const html=c.innerHTML.trim();data[m.id]={...(data[m.id]||{}),html};saveHistoryEdit_(m,html);if(!html)return;LS.set(K.data,data)};
  $('#go').onclick=async()=>{
   if(busy)return;busy=true;const b=$('#go');b.disabled=true;b.innerHTML='<span class="spin"></span> AI bekerja…';$('#st').textContent='Biasanya 20-90 detik, jangan tutup halaman.';
   try{
    const v={};m.f.forEach(f=>{const e=$('#f_'+f.k);v[f.k]=f.t==='file'?e.files[0]:e.value});
-   const fp=await fileParts(v.file);
-   const text=await callAI([{text:m.p(v)+ctx(m.id)},...fp]);
-   data[m.id]={html:md(text),ts:Date.now(),...v,sem:v.sem,materi:v.materi,alok:v.wkt?(v.wkt+(v.pert?' (Pertemuan '+v.pert+')':'')):'',pert:v.pert,totalPert:v.totalPert,unit:v.unit,continuity:v.continuity,lit:v.lit,litfocus:v.litfocus,prev:v.prev,nextSuggested:(v.pert&&v.totalPert&&+v.pert<+v.totalPert)?('Pertemuan '+(+v.pert+1)):''};
-    if(m.id==='rpm'){data.rpmHistory=data.rpmHistory||[];data.rpmHistory=data.rpmHistory.filter(x=>x.ts!==data.rpm.ts);data.rpmHistory.unshift({...data.rpm});data.rpmHistory=data.rpmHistory.slice(0,20);} if(m.id==='promes'){data.promesHistory=data.promesHistory||[];data.promesHistory=data.promesHistory.filter(x=>x.sem!==data.promes.sem);data.promesHistory.unshift({...data.promes});data.promesHistory=data.promesHistory.slice(0,2);}
-    LS.set(K.data,data);
-   out.innerHTML=head(m)+data[m.id].html+sig();nav();toast('Selesai. Periksa isinya lalu edit seperlunya.')
-  }catch(e){toast(e.message,1);$('#st').textContent=''}
-  finally{busy=false;b.disabled=false;b.textContent='Susun ulang dengan AI'}};
+   const fp=await fileParts(v.file);const text=await callAI([{text:m.p(v)+ctx(m.id)},...fp]);
+   const entry={html:md(text),ts:Date.now(),...v,sem:v.sem,materi:v.materi,alok:v.wkt?(v.wkt+(v.pert?' (Pertemuan '+v.pert+')':'')):'',pert:v.pert,totalPert:v.totalPert,unit:v.unit,continuity:v.continuity,lit:v.lit,litfocus:v.litfocus,prev:v.prev,nextSuggested:(v.pert&&v.totalPert&&+v.pert<+v.totalPert)?('Pertemuan '+(+v.pert+1)):''};
+   const k=histKey_(m.id);let h=histItems_(m.id);
+   if(m.id==='rpm'){
+     h=h.filter(x=>String(x.pert)!==String(entry.pert));h.push(entry);h=historySort_(m.id,h).slice(0,20);
+   }else if(m.id==='promes'){
+     h=h.filter(x=>x.sem!==entry.sem);h.push(entry);h=historySort_(m.id,h).slice(0,2);
+   }else{
+     const max=h.reduce((a,x)=>Math.max(a,+x.seq||0),0);entry.seq=max+1;h.push(entry);h=h.slice(-20);
+   }
+   if(k)data[k]=h;data[m.id]={...entry};LS.set(K.data,data);
+   module(m);toast('Selesai. Hasil tersimpan dan dapat dibuka kembali dari tab '+historyTitle_(m.id,entry,h.length-1)+'.');
+  }catch(e){toast(e.message,1);$('#st').textContent='';b.disabled=false;b.textContent=d?'Generate Ulang dengan AI':'Generate dengan AI'}
+  finally{busy=false}
+ };
  if(d)out.innerHTML=head(m)+d.html+sig();
  $('#xw').onclick=()=>exportWord(m);$('#xx').onclick=()=>exportExcel(m);$('#xp').onclick=()=>doPrint(m);
  $('#xc').onclick=()=>navigator.clipboard.writeText(out.innerText).then(()=>toast('Teks disalin'));
+ document.querySelectorAll('.histTab').forEach(b=>b.onclick=()=>{
+   const ts=b.dataset.histTs;if(!ts)return;
+   const x=histItems_(m.id).find(z=>String(z.ts)===String(ts));if(!x)return;
+   data[m.id]={...x};LS.set(K.data,data);module(m);toast(historyTitle_(m.id,x,0)+' dibuka. Anda dapat mengecek atau mengedit isinya.');
+ });
  if(m.id==='promes'){
-  $('#delAllPromes')?.addEventListener('click',()=>{if(!confirm('Hapus seluruh riwayat Promes Semester 1 dan 2?'))return;data.promesHistory=[];delete data.promes;LS.set(K.data,data);module(m);});
-  document.querySelectorAll('.promesDel').forEach(b=>b.onclick=()=>{if(!confirm('Hapus Promes ini?'))return;data.promesHistory=(data.promesHistory||[]).filter(z=>String(z.ts)!==b.dataset.promesTs);if(data.promes&&String(data.promes.ts)===b.dataset.promesTs)delete data.promes;LS.set(K.data,data);module(m);});
-  document.querySelectorAll('.promesOpen').forEach(b=>b.onclick=()=>{const x=(data.promesHistory||[]).find(z=>String(z.ts)===b.dataset.promesTs);if(!x)return;data.promes={...x};LS.set(K.data,data);module(m);toast('Promes Semester '+(x.sem==='Ganjil'?'1':'2')+' dibuka kembali.');});
-  document.querySelectorAll('.promesNextHist').forEach(b=>b.onclick=()=>{const x=(data.promesHistory||[]).find(z=>String(z.ts)===b.dataset.promesTs);if(!x)return;data.promes={...x};LS.set(K.data,data);module(m);setTimeout(()=>$('#nextPromes')?.click(),50);});
+   $('#delAllPromes')?.addEventListener('click',()=>{if(!confirm('Hapus seluruh riwayat Promes Semester 1 dan 2?'))return;data.promesHistory=[];delete data.promes;LS.set(K.data,data);module(m);});
+ }
+ if(m.id==='rpm'){
+   $('#delAllRpm')?.addEventListener('click',()=>{if(!confirm('Hapus seluruh riwayat RPM pertemuan?'))return;data.rpmHistory=[];delete data.rpm;LS.set(K.data,data);module(m);});
+ }
+ if(m.id!=='rpm'&&m.id!=='promes'&&hist.length){
+   $('#delAllHist')?.addEventListener('click',()=>{if(!confirm('Hapus seluruh hasil generate '+m.s+'?'))return;const k=histKey_(m.id);data[k]=[];delete data[m.id];LS.set(K.data,data);module(m);});
  }
  if(m.id==='promes'&&d&&d.sem==='Ganjil')$('#nextPromes').onclick=()=>{
-  $('#f_sem').value='Genap';
-  $('#st').textContent='Data Promes Semester 1 dibawa sebagai acuan. Tekan Generate dengan AI untuk membuat Semester 2.';
-  window.scrollTo({top:0,behavior:'smooth'});
+   $('#f_sem').value='Genap';$('#st').textContent='Data Promes Semester 1 tetap tersimpan dan akan menjadi acuan. Tekan Generate dengan AI untuk membuat Semester 2.';window.scrollTo({top:0,behavior:'smooth'});
  };
- if(m.id==='rpm'){
-  $('#delAllRpm')?.addEventListener('click',()=>{if(!confirm('Hapus seluruh riwayat RPM pertemuan?'))return;data.rpmHistory=[];delete data.rpm;LS.set(K.data,data);module(m);});
-  document.querySelectorAll('.rpmDel').forEach(b=>b.onclick=()=>{if(!confirm('Hapus RPM pertemuan ini?'))return;data.rpmHistory=(data.rpmHistory||[]).filter(z=>String(z.ts)!==b.dataset.rpmTs);if(data.rpm&&String(data.rpm.ts)===b.dataset.rpmTs)delete data.rpm;LS.set(K.data,data);module(m);});
-  document.querySelectorAll('.rpmOpen').forEach(b=>b.onclick=()=>{
-   const x=(data.rpmHistory||[]).find(z=>String(z.ts)===b.dataset.rpmTs);if(!x)return;
-   data.rpm={...x};LS.set(K.data,data);module(m);toast('RPM Pertemuan '+(x.pert||'?')+' dibuka kembali.');
-  });
-  document.querySelectorAll('.rpmNextHist').forEach(b=>b.onclick=()=>{
-   const x=(data.rpmHistory||[]).find(z=>String(z.ts)===b.dataset.rpmTs);if(!x)return;
-   data.rpm={...x};LS.set(K.data,data);module(m);
-   setTimeout(()=>$('#nextRpm')?.click(),50);
-  });
- }
  if(m.id==='rpm'&&d)$('#nextRpm').onclick=()=>{
-  const cur=+($('#f_pert').value||d.pert||1)||1;
-  $('#f_pert').value=String(cur+1);
-  $('#f_continuity').value='Lanjutan pertemuan sebelumnya';
-  $('#f_prev').value='Lanjutkan dari RPM Pertemuan '+cur+': '+txt(d.html).slice(-1800);
-  $('#st').textContent='Konteks pertemuan '+cur+' sudah dibawa. Tekan Susun dengan AI untuk membuat pertemuan '+(cur+1)+'.';
-  window.scrollTo({top:0,behavior:'smooth'});
+   const cur=+($('#f_pert').value||d.pert||1)||1;$('#f_pert').value=String(cur+1);$('#f_continuity').value='Lanjutan pertemuan sebelumnya';$('#f_prev').value='Lanjutkan dari RPM Pertemuan '+cur+': '+txt(d.html).slice(-1800);$('#st').textContent='Konteks pertemuan '+cur+' sudah dibawa. Tekan Susun dengan AI untuk membuat pertemuan '+(cur+1)+'.';window.scrollTo({top:0,behavior:'smooth'});
  };
 }
 function settings(){
@@ -583,7 +609,7 @@ function toHtml_(ir){return ir.body.map(b=>b.t==='tbl'?hTbl_(b,ir)+'<p style="ma
 function printIR_(ir,title){
  const pg=ir.page,mm=tw=>(tw/56.6929).toFixed(2)+'mm';
  const pv=document.createElement('div');pv.id='pv';
- pv.innerHTML='<table class="pw"><thead><tr><td><div style="height:'+mm(pg.t)+'"></div></td></tr></thead><tbody><tr><td class="pc" style="padding:0 '+mm(pg.r)+' 0 '+mm(pg.l)+'"></td></tr></tbody><tfoot><tr><td><div style="height:'+mm(pg.b)+'"></div></td></tr></tfoot></table>';
+ pv.innerHTML='<div class="pc" style="padding:'+mm(pg.t)+' '+mm(pg.r)+' '+mm(pg.b)+' '+mm(pg.l)+'"></div>';
  pv.querySelector('.pc').innerHTML=toHtml_(ir);
  const st=document.createElement('style');st.id='pgst';st.textContent='@page{size:'+mm(pg.w)+' '+mm(pg.h)+';margin:0}';
  document.body.append(pv,st);const old=document.title;document.title=title;
