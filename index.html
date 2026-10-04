@@ -124,8 +124,8 @@ html,body{background:#fff!important}
 <script>
 const $=s=>document.querySelector(s);
 const LS={get:(k,d)=>{try{const v=localStorage.getItem(k);return v==null?d:JSON.parse(v)}catch(e){return d}},mute:false,set:(k,v)=>{localStorage.setItem(k,JSON.stringify(v));if(!LS.mute&&SYNCK.includes(k)){localStorage.setItem('spena_ts',Date.now());schedPush()}}};
-const K={prof:'spena_profil_v3',data:'spena_data_v3',key:'spena_apikey',model:'spena_model',auth:'spena_auth_v3',fb:'spena_fb'};
-const SYNCK=[K.prof,K.data,K.auth,K.model,K.key,K.fb];
+const K={prof:'spena_profil_v3',data:'spena_data_v3',key:'spena_apikey',keys:'spena_apikeys_v2',model:'spena_model',auth:'spena_auth_v3',fb:'spena_fb'};
+const SYNCK=[K.prof,K.data,K.auth,K.model,K.key,K.keys,K.fb];
 const DEF={nama:'Feri Sujatmiko, S.Pd.',nip:'',sekolah:'SMPN 6 Blitar',mapel:'Bahasa Inggris',fase:'D',kelas:'VIII',ta:'2026/2027',kepsek:'Juli Setyanto, S.Pd., M.Pd.',nipKepsek:'',kota:'Blitar',jp:'4'};
 let prof={...DEF,...LS.get(K.prof,{})}, data=LS.get(K.data,{}), tab='home', busy=false;
 
@@ -223,8 +223,20 @@ const GEN='https://generativelanguage.googleapis.com/v1beta/models';
 const sleep=ms=>new Promise(r=>setTimeout(r,ms));
 function aiSt(t){const s=document.getElementById('st');if(s)s.textContent=t||''}
 const cleanM=s=>String(s).trim().replace(/^models\//,'');
+function keyList(){
+ const a=LS.get(K.keys,null);
+ if(Array.isArray(a)&&a.length)return a.map(x=>String(x).trim()).filter(Boolean);
+ const legacy=String(LS.get(K.key,'')||'').trim();
+ return legacy?[legacy]:[];
+}
+function keyLabel(i){return 'API key '+(i+1)}
 function fbList(){const f=LS.get(K.fb,null);return f===null?FB_DEF.slice():String(f).split(/[\n,;]+/).map(cleanM).filter(Boolean)}
 const modelChain=()=>[...new Set([cleanM(LS.get(K.model,MODEL_DEF)||MODEL_DEF),...fbList()])];
+function kqx(){const o=LS.get('spena_kqx',{}),n=Date.now();let ch=0;Object.keys(o).forEach(k=>{if(o[k]<=n){delete o[k];ch=1}});if(ch)LS.set('spena_kqx',o);return o}
+function keyStatus(){
+ const q=kqx(),ks=keyList(),now=Date.now();
+ return ks.map((k,i)=>q['k'+i]?keyLabel(i)+' (kuota sampai '+fmtDur(q['k'+i]-now)+')':keyLabel(i)+' siap').join(', ');
+}
 function qx(){const o=LS.get('spena_qx',{}),n=Date.now();let ch=0;Object.keys(o).forEach(k=>{if(o[k]<=n){delete o[k];ch=1}});if(ch)LS.set('spena_qx',o);return o}
 const badM=()=>LS.get('spena_bad',[]);
 function fmtDur(ms){const s=Math.max(1,Math.round(ms/1000)),h=Math.floor(s/3600),m=Math.floor(s%3600/60);return h?h+' jam '+m+' menit':m?m+' menit':s+' detik'}
@@ -257,18 +269,23 @@ async function callModel(model,key,parts){
   if(r.status===401||r.status===403)throw new Error('API key ditolak (kode '+r.status+'). Pastikan key aktif dan Gemini API diizinkan.');
   throw new Error('Gemini menolak permintaan ('+r.status+'): '+e.msg.slice(0,200))}}
 async function callAI(parts){
- const key=LS.get(K.key,'');if(!key)throw new Error('API key Gemini belum diisi. Buka Pengaturan, tempel API key dari Google AI Studio.');
+ const keys=keyList();if(!keys.length)throw new Error('API key Gemini belum diisi. Buka Pengaturan, lalu tambahkan minimal satu API key.');
  const chain=modelChain();let last=null,used=0;
- for(let i=0;i<chain.length;i++){const model=chain[i];
-  if(qx()[model]||badM().includes(model))continue;
-  try{const t=await callModel(model,key,parts);if(used)toast('Memakai model cadangan: '+model);aiSt('');return t}
-  catch(e){used++;
-   if(e.quota){const o=LS.get('spena_qx',{});o[model]=e.reset;LS.set('spena_qx',o);last=e;if(chain.slice(i+1).some(m=>!qx()[m]&&!badM().includes(m)))toast('Kuota '+model+' habis, beralih ke model cadangan...');continue}
-   if(e.skip){const b=badM();if(!b.includes(model)){b.push(model);LS.set('spena_bad',b)}last=e;continue}
-   throw e}}
- const left=Object.values(qx());
- if(left.length)throw new Error('Kuota harian semua model habis, pulih sekitar '+fmtDur(Math.min(...left)-Date.now())+' lagi. Solusi: aktifkan billing di Google AI Studio atau tambah model cadangan di Pengaturan > Koneksi AI.');
- throw new Error((last&&last.message?last.message+' ':'')+'Periksa nama model di Pengaturan > Koneksi AI (tombol "Lihat model di akun saya").')}
+ for(let ki=0;ki<keys.length;ki++){
+  const key=keys[ki];if(kqx()['k'+ki])continue;
+  const quotaModels=new Set(),badForKey=new Set();
+  for(let i=0;i<chain.length;i++){
+   const model=chain[i];if(quotaModels.has(model)||badM().includes(model)||badForKey.has(model))continue;
+   try{const t=await callModel(model,key,parts);if(used)toast('Memakai '+keyLabel(ki)+(model!==chain[0]?' · model cadangan '+model:'')+'.');aiSt('');return t}
+   catch(e){used++;
+    if(e.quota){quotaModels.add(model);last=e;continue}
+    if(e.skip){badForKey.add(model);last=e;continue}
+    if(e.status===401||e.status===403||/API key/i.test(e.message||'')){last=e;break}
+    throw e}}
+  if(ki<keys.length-1)toast(keyLabel(ki)+' tidak dapat melanjutkan, mencoba API key berikutnya...');
+ }
+ throw new Error((last&&last.message?last.message+' ':'')+'Semua API key/model cadangan sudah dicoba. Periksa kuota, API key, dan model di Pengaturan > Koneksi AI.')}
+
 async function listModels(){
  const key=LS.get(K.key,'');if(!key)throw new Error('Isi API key dulu');
  const r=await fetch(GEN+'?pageSize=200',{headers:{'x-goog-api-key':key}});
@@ -276,10 +293,14 @@ async function listModels(){
  const j=await r.json();
  return(j.models||[]).filter(m=>(m.supportedGenerationMethods||[]).includes('generateContent')).map(m=>cleanM(m.name)).filter(n=>/^gemini/.test(n)&&!/embed|tts|image|live|audio|robot|computer|veo|native|aqa/.test(n)).sort().reverse()}
 function quotaBanner(){
- if(!LS.get(K.key,''))return'';const ex=qx(),ch=modelChain().filter(m=>!badM().includes(m));
- if(!ch.length||!ch.every(m=>ex[m]))return'';
- const t=Math.min(...ch.map(m=>ex[m]))-Date.now();
- return'<div class="banner"><b>Kuota Gemini habis.</b> Semua model sudah mencapai batas, pulih sekitar '+fmtDur(t)+' lagi. Agar bisa lanjut sekarang: aktifkan billing atau tambah model cadangan. <a href="#" onclick="tab=\'set\';show();return false">Buka Pengaturan</a>.</div>'}
+ if(!keyList().length)return'';
+ const ex=qx(),ch=modelChain().filter(m=>!badM().includes(m)),ks=keyList(),kq=kqx();
+ const modelAllOut=ch.length&&ch.every(m=>ex[m]);
+ const keyAllOut=ks.length&&ks.every((_,i)=>kq['k'+i]);
+ if(!modelAllOut&&!keyAllOut)return'';
+ const times=Object.values(kq).concat(Object.values(ex).filter(Boolean));
+ const t=Math.min(...times)-Date.now();
+ return'<div class="banner"><b>Kuota AI sedang penuh.</b> API key/model yang tersedia sedang mencapai batas, pulih sekitar '+fmtDur(t)+' lagi. Tambahkan API key cadangan di Pengaturan. <a href="#" onclick="tab=\'set\';show();return false">Buka Pengaturan</a></div>'}
 
 /* ---------- Markdown, konteks, tanda tangan ---------- */
 function cleanAIText(s){
@@ -324,6 +345,7 @@ function ctx(skip){
   c+='\n\n### Data tersimpan: '+m.n+'\n'+txt(data[m.id].html).slice(0,7000)
  }
  if(skip==='rpm'&&data.rpm?.html)c+='\n\n### RPM tersimpan untuk kesinambungan\n'+txt(data.rpm.html).slice(0,9000);
+  if(skip==='promes'&&data.promesHistory?.length)c+='\n\n### Promes tersimpan untuk kesinambungan semester\n'+data.promesHistory.slice().sort((a,b)=>(a.sem==='Ganjil'?1:2)-(b.sem==='Ganjil'?1:2)).map(x=>'Semester '+(x.sem==='Ganjil'?'1 (Ganjil)':'2 (Genap)')+'\\n'+txt(x.html)).join('\\n\\n').slice(0,12000);
  return c?'\n\nGunakan data berikut yang sudah disusun guru agar dokumen konsisten. Untuk RPM, gunakan RPM tersimpan sebagai pijakan kesinambungan dan jangan menyalin aktivitas mentah-mentah:'+c:''
 }
 function sig(){
@@ -379,13 +401,14 @@ function module(m){
   f.t==='file'?'<input type="file" id="'+id+'" accept="image/*,.pdf,.xlsx,.xls,.csv,.docx,.txt">':
   '<input id="'+id+'" type="'+(f.t==='num'?'number':'text')+'" value="'+esc(v)+'" placeholder="'+esc(f.ph||'')+'">')+'</div>'};
  const d=data[m.id];
- const hist=(m.id==='rpm'&&data.rpmHistory?.length)?'<div class="card noprint" id="rpmHistoryCard"><div class="ph"><h3>Rangkaian Pertemuan RPM</h3><button class="btn ghost" id="delAllRpm">Hapus Semua Pertemuan</button></div><p class="muted">Pertemuan tersusun dari yang paling awal. Buka/Edit untuk mengubah kembali atau Lanjutkan untuk membuat pertemuan berikutnya.</p>'+data.rpmHistory.slice().sort((a,b)=>(+a.pert||999)-(+b.pert||999)).map((x,i)=>'<div class="pr" style="align-items:center"><span class="tag">'+esc(x.pert||i+1)+'</span><div style="flex:1"><b>Pertemuan '+esc(x.pert||i+1)+(x.unit?' · '+esc(x.unit):'')+'</b><small>'+esc(x.materi||'')+'</small></div><button class="btn ghost rpmOpen" data-rpm-ts="'+esc(x.ts||'')+'">Buka/Edit</button><button class="btn ghost rpmNextHist" data-rpm-ts="'+esc(x.ts||'')+'">Lanjutkan</button><button class="btn ghost rpmDel" data-rpm-ts="'+esc(x.ts||'')+'">Hapus</button></div>').join('')+'</div>':'';
- $('#main').innerHTML=noKey()+hist+'<div class="card form noprint"><div class="ph"><h3 style="margin:0">Isi data dokumen</h3><div class="row"><button class="btn ghost" id="editDoc">Edit Data</button><button class="btn ghost" id="resetDoc">Hapus / Reset</button></div></div><div class="grid">'+m.f.map(fld).join('')+'</div><div class="row" style="margin-top:14px"><button class="btn" id="go">'+(d?'Generate Ulang dengan AI':'Generate dengan AI')+'</button>'+(m.id==='rpm'&&d?'<button class="btn ghost" id="nextRpm">Buat Pertemuan Berikutnya</button>':'')+'<span class="muted" id="st"></span></div></div>'+(m.id==='rpm'?'<div class="banner"><b>Rangkaian RPM:</b> pertemuan disimpan di bagian paling atas agar mudah dibuka, diedit, dilanjutkan, atau dihapus.</div>':'')+'<div class="card"><div class="row noprint" style="margin-bottom:10px"><h3 style="margin:0;flex:1">Hasil <span class="muted">(klik teks untuk mengedit; tersimpan otomatis)</span></h3><button class="btn ghost" id="xw">Word</button><button class="btn ghost" id="xx">Excel</button><button class="btn ghost" id="xp">Cetak / PDF</button><button class="btn ghost" id="xc">Salin</button></div><div id="out" contenteditable="true">'+(d?d.html:'<p class="muted">Belum ada hasil. Isi form di atas lalu tekan tombol Generate dengan AI.</p>')+'</div></div>';
+ const hist=m.id==='rpm'&&data.rpmHistory?.length?'<div class="card noprint"><div class="ph"><h3>Rangkaian Pertemuan RPM</h3><button class="btn ghost" id="delAllRpm">Hapus Semua Pertemuan</button></div><p class="muted">Pertemuan tersusun dari yang paling awal. Buka/Edit atau Lanjutkan ke pertemuan berikutnya.</p>'+data.rpmHistory.slice().sort((a,b)=>(+a.pert||999)-(+b.pert||999)).map((x,i)=>'<div class="pr" style="align-items:center"><span class="tag">'+esc(x.pert||i+1)+'</span><div style="flex:1"><b>Pertemuan '+esc(x.pert||i+1)+(x.unit?' · '+esc(x.unit):'')+'</b><small>'+esc(x.materi||'')+'</small></div><button class="btn ghost rpmOpen" data-rpm-ts="'+esc(x.ts||'')+'">Buka/Edit</button><button class="btn ghost rpmNextHist" data-rpm-ts="'+esc(x.ts||'')+'">Lanjutkan</button><button class="btn ghost rpmDel" data-rpm-ts="'+esc(x.ts||'')+'">Hapus</button></div>').join('')+'</div>':m.id==='promes'&&data.promesHistory?.length?'<div class="card noprint"><div class="ph"><h3>Riwayat Program Semester</h3><button class="btn ghost" id="delAllPromes">Hapus Riwayat</button></div><p class="muted">Promes tersimpan di sini. Hanya ada Semester 1 dan Semester 2.</p>'+data.promesHistory.slice().sort((a,b)=>(a.sem==='Ganjil'?1:2)-(b.sem==='Ganjil'?1:2)).map(x=>'<div class="pr" style="align-items:center"><span class="tag">'+(x.sem==='Ganjil'?'1':'2')+'</span><div style="flex:1"><b>Semester '+(x.sem==='Ganjil'?'1 (Ganjil)':'2 (Genap)')+'</b><small>Terakhir disimpan '+(x.ts?new Date(x.ts).toLocaleDateString('id-ID'):'')+'</small></div><button class="btn ghost promesOpen" data-promes-ts="'+esc(x.ts||'')+'">Buka/Edit</button>'+(x.sem==='Ganjil'&&!data.promesHistory.some(y=>y.sem==='Genap')?'<button class="btn ghost promesNextHist" data-promes-ts="'+esc(x.ts||'')+'">Lanjutkan Semester 2</button>':'')+'<button class="btn ghost promesDel" data-promes-ts="'+esc(x.ts||'')+'">Hapus</button></div>').join('')+'</div>':'';
+
+ $('#main').innerHTML=noKey()+hist+'<div class="card form noprint"><div class="ph"><h3 style="margin:0">Isi data dokumen</h3><div class="row"><button class="btn ghost" id="editDoc">Edit Data</button><button class="btn ghost" id="resetDoc">Hapus / Reset</button></div></div><div class="grid">'+m.f.map(fld).join('')+'</div><div class="row" style="margin-top:14px"><button class="btn" id="go">'+(d?'Generate Ulang dengan AI':'Generate dengan AI')+'</button>'+(m.id==='rpm'&&d?'<button class="btn ghost" id="nextRpm">Buat Pertemuan Berikutnya</button>':'')+(m.id==='promes'&&d&&d.sem==='Ganjil'&&!((data.promesHistory||[]).some(x=>x.sem==='Genap'))?'<button class="btn ghost" id="nextPromes">Buat Semester 2</button>':'')+'<span class="muted" id="st"></span></div></div>'+(m.id==='rpm'?'<div class="banner"><b>Rangkaian RPM:</b> pertemuan disimpan di bagian paling atas agar mudah dibuka, diedit, dilanjutkan, atau dihapus.</div>':'')+'<div class="card"><div class="row noprint" style="margin-bottom:10px"><h3 style="margin:0;flex:1">Hasil <span class="muted">(klik teks untuk mengedit; tersimpan otomatis)</span></h3><button class="btn ghost" id="xw">Word</button><button class="btn ghost" id="xx">Excel</button><button class="btn ghost" id="xp">Cetak / PDF</button><button class="btn ghost" id="xc">Salin</button></div><div id="out" contenteditable="true">'+(d?d.html:'<p class="muted">Belum ada hasil. Isi form di atas lalu tekan tombol Generate dengan AI.</p>')+'</div></div>';
  const out=$('#out');
  const fillSaved=()=>{if(!d)return;m.f.forEach(f=>{const e=$('#f_'+f.k),v=d[f.k];if(e&&v!=null&&f.t!=='file')e.value=v;});};
  fillSaved();
  $('#editDoc').onclick=()=>{document.querySelector('.form')?.scrollIntoView({behavior:'smooth',block:'start'});toast('Mode edit aktif. Ubah data lalu pilih Generate Ulang dengan AI.');};
- $('#resetDoc').onclick=()=>{if(!confirm('Hapus hasil generator ini dan mulai dari awal?'))return;delete data[m.id];if(m.id==='rpm')data.rpmHistory=[];LS.set(K.data,data);module(m);};
+ $('#resetDoc').onclick=()=>{if(!confirm('Hapus hasil generator ini dan mulai dari awal?'))return;delete data[m.id];if(m.id==='rpm')data.rpmHistory=[];if(m.id==='promes')data.promesHistory=[];LS.set(K.data,data);module(m);};
  out.oninput=()=>{const c=out.cloneNode(true);c.querySelector('.sig')?.remove();data[m.id]={...(data[m.id]||{}),html:c.innerHTML.replace(/<p style="text-align:center">.*?<\/p>/,'')};if(!data[m.id].html)return;LS.set(K.data,data)};
  if(d&&!d.html.includes('class="sig"')){}
  $('#go').onclick=async()=>{
@@ -395,7 +418,7 @@ function module(m){
    const fp=await fileParts(v.file);
    const text=await callAI([{text:m.p(v)+ctx(m.id)},...fp]);
    data[m.id]={html:md(text),ts:Date.now(),...v,sem:v.sem,materi:v.materi,alok:v.wkt?(v.wkt+(v.pert?' (Pertemuan '+v.pert+')':'')):'',pert:v.pert,totalPert:v.totalPert,unit:v.unit,continuity:v.continuity,lit:v.lit,litfocus:v.litfocus,prev:v.prev,nextSuggested:(v.pert&&v.totalPert&&+v.pert<+v.totalPert)?('Pertemuan '+(+v.pert+1)):''};
-    if(m.id==='rpm'){data.rpmHistory=data.rpmHistory||[];data.rpmHistory=data.rpmHistory.filter(x=>x.ts!==data.rpm.ts);data.rpmHistory.unshift({...data.rpm});data.rpmHistory=data.rpmHistory.slice(0,20);}
+    if(m.id==='rpm'){data.rpmHistory=data.rpmHistory||[];data.rpmHistory=data.rpmHistory.filter(x=>x.ts!==data.rpm.ts);data.rpmHistory.unshift({...data.rpm});data.rpmHistory=data.rpmHistory.slice(0,20);} if(m.id==='promes'){data.promesHistory=data.promesHistory||[];data.promesHistory=data.promesHistory.filter(x=>x.sem!==data.promes.sem);data.promesHistory.unshift({...data.promes});data.promesHistory=data.promesHistory.slice(0,2);}
     LS.set(K.data,data);
    out.innerHTML=head(m)+data[m.id].html+sig();nav();toast('Selesai. Periksa isinya lalu edit seperlunya.')
   }catch(e){toast(e.message,1);$('#st').textContent=''}
@@ -403,6 +426,17 @@ function module(m){
  if(d)out.innerHTML=head(m)+d.html+sig();
  $('#xw').onclick=()=>exportWord(m);$('#xx').onclick=()=>exportExcel(m);$('#xp').onclick=()=>doPrint(m);
  $('#xc').onclick=()=>navigator.clipboard.writeText(out.innerText).then(()=>toast('Teks disalin'));
+ if(m.id==='promes'){
+  $('#delAllPromes')?.addEventListener('click',()=>{if(!confirm('Hapus seluruh riwayat Promes Semester 1 dan 2?'))return;data.promesHistory=[];delete data.promes;LS.set(K.data,data);module(m);});
+  document.querySelectorAll('.promesDel').forEach(b=>b.onclick=()=>{if(!confirm('Hapus Promes ini?'))return;data.promesHistory=(data.promesHistory||[]).filter(z=>String(z.ts)!==b.dataset.promesTs);if(data.promes&&String(data.promes.ts)===b.dataset.promesTs)delete data.promes;LS.set(K.data,data);module(m);});
+  document.querySelectorAll('.promesOpen').forEach(b=>b.onclick=()=>{const x=(data.promesHistory||[]).find(z=>String(z.ts)===b.dataset.promesTs);if(!x)return;data.promes={...x};LS.set(K.data,data);module(m);toast('Promes Semester '+(x.sem==='Ganjil'?'1':'2')+' dibuka kembali.');});
+  document.querySelectorAll('.promesNextHist').forEach(b=>b.onclick=()=>{const x=(data.promesHistory||[]).find(z=>String(z.ts)===b.dataset.promesTs);if(!x)return;data.promes={...x};LS.set(K.data,data);module(m);setTimeout(()=>$('#nextPromes')?.click(),50);});
+ }
+ if(m.id==='promes'&&d&&d.sem==='Ganjil')$('#nextPromes').onclick=()=>{
+  $('#f_sem').value='Genap';
+  $('#st').textContent='Data Promes Semester 1 dibawa sebagai acuan. Tekan Generate dengan AI untuk membuat Semester 2.';
+  window.scrollTo({top:0,behavior:'smooth'});
+ };
  if(m.id==='rpm'){
   $('#delAllRpm')?.addEventListener('click',()=>{if(!confirm('Hapus seluruh riwayat RPM pertemuan?'))return;data.rpmHistory=[];delete data.rpm;LS.set(K.data,data);module(m);});
   document.querySelectorAll('.rpmDel').forEach(b=>b.onclick=()=>{if(!confirm('Hapus RPM pertemuan ini?'))return;data.rpmHistory=(data.rpmHistory||[]).filter(z=>String(z.ts)!==b.dataset.rpmTs);if(data.rpm&&String(data.rpm.ts)===b.dataset.rpmTs)delete data.rpm;LS.set(K.data,data);module(m);});
@@ -429,10 +463,11 @@ function settings(){
  $('#main').innerHTML='<div class="card"><h2>Profil guru & sekolah</h2><p class="muted">Dipakai di semua dokumen, termasuk kolom tanda tangan.</p><div class="grid">'+
  [['nama','Nama guru'],['nip','NIP guru'],['sekolah','Sekolah'],['mapel','Mata pelajaran'],['fase','Fase'],['kelas','Kelas'],['ta','Tahun pelajaran'],['jp','JP per minggu'],['kepsek','Kepala sekolah'],['nipKepsek','NIP kepala sekolah'],['kota','Kota (tanda tangan)']].map(([k,l])=>'<div><label for="p_'+k+'">'+l+'</label><input id="p_'+k+'" value="'+esc(prof[k])+'"></div>').join('')+
  '</div><button class="btn" id="sp" style="margin-top:14px">Simpan profil</button></div>'+
- '<div class="card"><h2>Koneksi AI (Gemini)</h2><p class="muted">Buat API key gratis di Google AI Studio (aistudio.google.com), lalu tempel di sini. Key disimpan hanya di browser ini, tidak dikirim ke GitHub. Jangan menulis key langsung di dalam file index.html.</p><div class="grid"><div><label for="k1">API key</label><input id="k1" type="password" value="'+esc(LS.get(K.key,''))+'" autocomplete="off"></div><div><label for="k2">Model utama</label><input id="k2" value="'+esc(LS.get(K.model,'gemini-2.5-flash'))+'"></div><div style="grid-column:1/-1"><label for="k3">Model cadangan (satu per baris, dicoba berurutan saat kuota model utama habis)</label><textarea id="k3" rows="3" placeholder="gemini-2.5-flash">'+esc(fbList().join('\n'))+'</textarea></div></div><div class="row" style="margin-top:14px"><button class="btn" id="sk">Simpan</button><button class="btn ghost" id="tk">Tes koneksi</button><button class="btn ghost" id="lm">Lihat model di akun saya</button><button class="btn ghost" id="qr">Coba lagi semua model</button></div><div class="row" id="lmo" style="margin-top:10px"></div><p class="muted" id="qs" style="margin-top:10px">'+esc(qStatus())+'</p><details style="margin-top:8px"><summary style="cursor:pointer;font-weight:700">Agar generate tidak sering terhenti karena kuota</summary><ol class="muted" style="line-height:1.7"><li><b>Aktifkan billing</b> pada project API key Anda (di Google AI Studio, halaman API keys, tombol Set up billing atau Upgrade). Batas harian naik jauh dan biayanya dihitung per pemakaian, tanpa biaya tetap.</li><li><b>Model cadangan.</b> Tiap model punya kuota sendiri. Saat model utama habis, aplikasi otomatis pindah ke model berikutnya di daftar.</li><li><b>Hemat permintaan.</b> Satu tombol Susun sama dengan satu permintaan. Hindari menekan Susun ulang berkali-kali; edit hasil langsung di layar. Tombol Tes koneksi tidak memakai kuota.</li><li>Kuota harian reset otomatis. Waktu pulihnya tertera di status di atas.</li></ol></details></div>'+
+ '<div class="card"><h2>Koneksi AI (Gemini)</h2><p class="muted">API key disimpan hanya di browser ini. Anda dapat memasukkan beberapa key sebagai cadangan. Jika key aktif terkena kuota, aplikasi otomatis mencoba key berikutnya.</p><div class="grid"><div style="grid-column:1/-1"><label for="k1">API key Gemini utama</label><input id="k1" type="password" value="'+esc(LS.get(K.key,''))+'" autocomplete="off" placeholder="Tempel API key utama"></div><div style="grid-column:1/-1"><label for="kkeys">API key cadangan (satu key per baris)</label><textarea id="kkeys" rows="4" placeholder="AIza...&#10;AIza...&#10;AIza..."></textarea></div><div><label for="k2">Model utama</label><input id="k2" value="'+esc(LS.get(K.model,'gemini-2.5-flash'))+'"></div><div style="grid-column:1/-1"><label for="k3">Model cadangan (satu per baris)</label><textarea id="k3" rows="3" placeholder="gemini-2.5-flash-lite">'+esc(fbList().join('\n'))+'</textarea></div></div><div class="row" style="margin-top:14px"><button class="btn" id="sk">Simpan</button><button class="btn ghost" id="tk">Tes koneksi</button><button class="btn ghost" id="lm">Lihat model di akun saya</button><button class="btn ghost" id="qr">Coba lagi semua</button></div><div class="row" id="lmo" style="margin-top:10px"></div><p class="muted" id="qs" style="margin-top:10px">'+esc(qStatus())+' '+esc(keyStatus())+'</p><details style="margin-top:8px"><summary style="cursor:pointer;font-weight:700">Cara kerja cadangan API key</summary><ol class="muted" style="line-height:1.7"><li>API key utama dipakai terlebih dahulu.</li><li>Jika kuota key/model habis, aplikasi otomatis mencoba model cadangan dan kemudian API key cadangan.</li><li>API key cadangan diisi satu per baris.</li><li>Key tetap tersimpan lokal di browser. Jangan memasukkan key ke file HTML yang akan dibagikan publik.</li></ol></details></div>'+
  '<div class="card"><h2>Sinkronisasi antar perangkat</h2><p class="muted">Data (profil, hasil dokumen, login) tersimpan di browser tiap perangkat. Hubungkan ke Google Drive Anda agar semua perangkat memakai data yang sama.</p><div class="grid"><div><label for="s1">URL Web App (Google Apps Script)</label><input id="s1" value="'+esc((syncCfg()||{}).u||'')+'" placeholder="https://script.google.com/macros/s/.../exec"></div><div><label for="s2">Kode rahasia</label><input id="s2" type="password" value="'+esc((syncCfg()||{}).c||'')+'" autocomplete="off"></div></div><label style="display:flex;gap:8px;align-items:center;font-weight:400;margin-top:12px"><input type="checkbox" id="s3" style="width:auto" '+((syncCfg()||{}).key?'checked':'')+'> Sertakan API key Gemini (tersimpan di Google Drive Anda)</label><div class="row" style="margin-top:14px"><button class="btn" id="ss">Simpan & uji</button><button class="btn ghost" id="su">Unggah dari perangkat ini</button><button class="btn ghost" id="sd">Ambil dari cloud</button><button class="btn ghost" id="sl">Salin tautan perangkat baru</button></div><p class="muted" id="sst" style="margin-top:10px">'+(syncCfg()?'Otomatis mengunggah 2-3 detik setelah ada perubahan. Terakhir: '+(LS.get('spena_last',0)?new Date(LS.get('spena_last')).toLocaleString('id-ID'):'belum pernah'):'Belum terhubung.')+'</p><details style="margin-top:12px"><summary style="cursor:pointer;font-weight:600">Cara membuat (sekali saja, sekitar 3 menit)</summary><ol class="muted"><li>Buka script.google.com, pilih Proyek baru.</li><li>Hapus isi awal, tempel kode di bawah, lalu ganti <b>GANTI_DENGAN_KODE_RAHASIA_ANDA</b> dengan kode panjang pilihan Anda.</li><li>Klik Deploy, Deployment baru, jenis <b>Aplikasi web</b>. Jalankan sebagai: <b>Saya</b>. Yang memiliki akses: <b>Siapa saja</b>. Deploy, lalu izinkan akses Drive.</li><li>Salin URL yang berakhiran /exec ke kolom di atas, isi kode rahasia yang sama, lalu tekan Simpan & uji dan Unggah dari perangkat ini.</li><li>Di perangkat lain, tekan Salin tautan perangkat baru di sini, lalu buka tautan itu di perangkat tujuan. Tautan berisi kode rahasia, jadi kirim hanya ke diri sendiri.</li></ol><pre id="gs" style="white-space:pre-wrap;background:var(--bg);border-radius:8px;padding:12px;font-size:12px;overflow:auto">'+esc(GS)+'</pre><button class="btn ghost" id="sc">Salin kode</button></details></div>'+
  '<div class="card"><h2>Ganti login</h2><p class="muted">Ini hanya kunci tampilan. Siapa pun yang membuka kode halaman bisa melewatinya, jadi jangan menyimpan data rahasia siswa di sini.</p><div class="grid"><div><label for="a1">Username baru</label><input id="a1"></div><div><label for="a2">Password baru</label><input id="a2" type="password"></div></div><button class="btn" id="sa" style="margin-top:14px">Simpan login</button></div>';
 
+ const keyBox=$('#kkeys');if(keyBox)keyBox.value=keyList().slice(1).join('\n');
  const rd=()=>({u:$('#s1').value.trim(),c:$('#s2').value,key:$('#s3').checked});
  $('#ss').onclick=async()=>{const o=rd();if(!/^https:\/\/script\.google\.com\//.test(o.u)||o.c.length<6)return toast('Isi URL Web App (https://script.google.com/...) dan kode rahasia min. 6 karakter',1);LS.set('spena_sync',o);try{const j=await sCall('load');sStat(j.payload?'Terhubung. Ada data di cloud.':'Terhubung. Cloud masih kosong, tekan Unggah dari perangkat ini.');toast('Koneksi berhasil')}catch(e){sStat(e.message,1);toast(e.message,1)}};
  $('#su').onclick=async()=>{const o=rd();LS.set('spena_sync',o);localStorage.setItem('spena_ts',Date.now());await push(false)};
@@ -440,8 +475,16 @@ function settings(){
  $('#sl').onclick=()=>{const o=rd();if(!o.u)return toast('Isi dan simpan koneksi dulu',1);LS.set('spena_sync',o);const t=location.origin+location.pathname+'#s='+btoa(unescape(encodeURIComponent(JSON.stringify(o))));navigator.clipboard.writeText(t).then(()=>toast('Tautan disalin. Buka di perangkat baru.'))};
  $('#sc').onclick=()=>navigator.clipboard.writeText(GS).then(()=>toast('Kode disalin'));
  $('#sp').onclick=()=>{Object.keys(DEF).forEach(k=>prof[k]=$('#p_'+k).value.trim());LS.set(K.prof,prof);nav();toast('Profil disimpan')};
- $('#sk').onclick=()=>{LS.set(K.key,$('#k1').value.trim());LS.set(K.model,cleanM($('#k2').value)||'gemini-2.5-flash');LS.set(K.fb,$('#k3').value);LS.set('spena_qx',{});LS.set('spena_bad',[]);$('#qs').textContent=qStatus();toast('Pengaturan AI disimpan')};
- $('#qr').onclick=()=>{LS.set('spena_qx',{});LS.set('spena_bad',[]);$('#qs').textContent=qStatus();toast('Penanda kuota dihapus. Model dicoba lagi saat Anda menekan Susun.')};
+ $('#sk').onclick=()=>{
+ const primary=$('#k1').value.trim();
+ const backups=$('#kkeys').value.split(/[\n,;]+/).map(x=>x.trim()).filter(Boolean);
+ const all=[primary,...backups].filter(Boolean);
+ if(!all.length)return toast('Tambahkan minimal satu API key Gemini',1);
+ LS.set(K.key,primary);LS.set(K.keys,all);LS.set(K.model,cleanM($('#k2').value)||'gemini-2.5-flash');LS.set(K.fb,$('#k3').value);
+ LS.set('spena_qx',{});LS.set('spena_kqx',{});LS.set('spena_bad',[]);
+ $('#qs').textContent=qStatus()+' '+keyStatus();toast('Pengaturan AI disimpan')
+};
+ $('#qr').onclick=()=>{LS.set('spena_qx',{});LS.set('spena_kqx',{});LS.set('spena_bad',[]);$('#qs').textContent=qStatus()+' '+keyStatus();toast('Penanda kuota API key dan model dihapus. Semua dicoba lagi.')};
  $('#lm').onclick=async()=>{const b=$('#lm');b.disabled=true;b.textContent='Memuat...';try{const l=await listModels(),box=$('#lmo');box.innerHTML=l.length?'<span class="muted" style="width:100%">Klik nama model untuk menambahkannya sebagai cadangan:</span>'+l.map(n=>'<button class="btn ghost" style="padding:5px 10px;font-size:12px" data-m="'+esc(n)+'">'+esc(n)+'</button>').join(''):'<span class="muted">Tidak ada model yang cocok.</span>';box.querySelectorAll('[data-m]').forEach(x=>x.onclick=()=>{const t=$('#k3'),a=t.value.split(/\n+/).map(s=>s.trim()).filter(Boolean);if(!a.includes(x.dataset.m))a.push(x.dataset.m);t.value=a.join('\n');toast('Ditambahkan. Tekan Simpan.')})}catch(e){toast(e.message,1)}finally{b.disabled=false;b.textContent='Lihat model di akun saya'}};
  $('#tk').onclick=async()=>{$('#sk').click();try{const l=await listModels();toast('Koneksi berhasil. '+l.length+' model tersedia. Tes ini tidak memakai kuota.')}catch(e){toast(e.message,1)}};
  $('#sa').onclick=async()=>{const u=$('#a1').value.trim(),p=$('#a2').value;if(u.length<3||p.length<6)return toast('Username min. 3 dan password min. 6 karakter',1);LS.set(K.auth,{u,h:await sha(p)});toast('Login diperbarui')}}
@@ -778,7 +821,7 @@ function doPost(e){
 let pushT;
 const syncCfg=()=>LS.get('spena_sync',null);
 function schedPush(){const c=syncCfg();if(!c||!c.u||LS.mute)return;clearTimeout(pushT);pushT=setTimeout(()=>push(true),2500)}
-function bundle(){const c=syncCfg()||{};const b={ts:+localStorage.getItem('spena_ts')||Date.now(),prof,data,auth:LS.get(K.auth,null),model:LS.get(K.model,'gemini-2.5-flash'),fb:LS.get(K.fb,null)};if(c.key)b.key=LS.get(K.key,'');return b}
+function bundle(){const c=syncCfg()||{};const b={ts:+localStorage.getItem('spena_ts')||Date.now(),prof,data,auth:LS.get(K.auth,null),model:LS.get(K.model,'gemini-2.5-flash'),fb:LS.get(K.fb,null),keys:LS.get(K.keys,null)};if(c.key)b.key=LS.get(K.key,'');return b}
 async function sCall(action,payload){
  const c=syncCfg();if(!c||!c.u)throw new Error('URL sinkronisasi belum diisi');
  const r=await fetch(c.u,{method:'POST',headers:{'Content-Type':'text/plain;charset=utf-8'},body:JSON.stringify({secret:c.c,action,payload})});
@@ -793,7 +836,7 @@ async function pull(force){
  const lt=+localStorage.getItem('spena_ts')||0;if(!force&&p.ts<=lt)return 'sama';
  LS.mute=true;try{
   prof={...DEF,...p.prof};data=p.data||{};LS.set(K.prof,prof);LS.set(K.data,data);
-  if(p.auth)LS.set(K.auth,p.auth);if(p.fb!==undefined&&p.fb!==null)LS.set(K.fb,p.fb);if(p.model)LS.set(K.model,p.model);if(p.key)LS.set(K.key,p.key);
+  if(p.auth)LS.set(K.auth,p.auth);if(p.fb!==undefined&&p.fb!==null)LS.set(K.fb,p.fb);if(p.model)LS.set(K.model,p.model);if(p.keys)LS.set(K.keys,p.keys);if(p.key)LS.set(K.key,p.key);
   localStorage.setItem('spena_ts',p.ts)}finally{LS.mute=false}
  return 'baru'}
 async function syncStart(){
