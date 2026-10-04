@@ -7,6 +7,7 @@
 <link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;500;600;700&display=swap" rel="stylesheet">
 <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/exceljs/4.4.0/exceljs.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/mammoth/1.6.0/mammoth.browser.min.js"></script>
 <style>
 :root{--ink:#101615;--teal:#0f9d8a;--btn:#079886;--btn2:#067a6b;--pill:#d0e6e1;--bg:#f1faf8;--card:#fff;--line:#b9d6d1;--mute:#5d6b68;--orange:#fbb040;--err:#b3261e}
@@ -51,14 +52,32 @@ main{min-width:0}
 #out table{border-collapse:collapse;width:100%;margin:10px 0;font-size:13px}
 #out th,#out td{border:1px solid #444;padding:5px 7px;vertical-align:top;text-align:left}#out th{background:#e4f1ee}
 #out h1,#out h2,#out h3{font-family:inherit}#out p{margin:6px 0}
-.sig{display:flex;justify-content:space-between;margin-top:34px;gap:20px}.sig div{width:46%}.sig .sp{height:64px}
+#out table.sig{border:0;width:100%;margin-top:30px}#out table.sig td{border:0;width:50%;padding:2px 4px}
 .spin{display:inline-block;width:14px;height:14px;border:2px solid #fff6;border-top-color:#fff;border-radius:50%;animation:r .7s linear infinite;vertical-align:-2px}
 @keyframes r{to{transform:rotate(360deg)}}
 #toast{position:fixed;right:16px;bottom:16px;display:grid;gap:8px;z-index:9}
 #toast div{background:var(--ink);color:#fff;padding:10px 14px;border-radius:10px;max-width:340px}#toast .e{background:var(--err)}
 @media(max-width:700px){#app{padding:12px 12px 32px}nav{flex-direction:column;align-items:stretch;gap:10px}h1{font-size:23px}.card{padding:16px}}
 @media (prefers-reduced-motion:reduce){.spin{animation-duration:2s}}
-@media print{body{background:#fff}nav,#toast,.card.form,.noprint{display:none!important}#app{padding:0;max-width:none}.card{padding:0}#out{border:0;padding:0}@page{size:A4 landscape;margin:14mm}}
+#pv{display:none}
+@media print{
+html,body{background:#fff!important}
+#app,#login,#toast{display:none!important}
+#pv{display:block;font-family:"Times New Roman",Times,serif;font-size:11pt;color:#000;line-height:1.35}
+#pv .pw{width:100%;border-collapse:collapse;border:0}
+#pv .pw>thead>tr>td,#pv .pw>tbody>tr>td,#pv .pw>tfoot>tr>td{border:0;padding:0}
+#pv .gap{height:14mm}
+#pv .pc{padding:0 15mm!important}
+#pv .pc table{border-collapse:collapse;width:100%;table-layout:fixed;margin:6pt 0;font-size:10pt}
+#pv .pc th,#pv .pc td{border:.6pt solid #000;padding:3pt 4pt;vertical-align:top;overflow-wrap:anywhere}
+#pv .pc th{background:#e6e6e6!important;text-align:center;-webkit-print-color-adjust:exact;print-color-adjust:exact}
+#pv .pc thead{display:table-header-group}
+#pv .pc tr{break-inside:avoid}
+#pv .pc h2,#pv .pc h3,#pv .pc h4{break-after:avoid;margin:10pt 0 4pt}
+#pv .pc p{margin:3pt 0}
+#pv .pc table.sig{border:0;margin-top:22pt;break-inside:avoid;table-layout:auto}
+#pv .pc table.sig td{border:0;width:50%;padding:1pt 4pt}
+}
 </style>
 </head>
 <body>
@@ -166,7 +185,8 @@ function ctx(skip){
  return c?'\n\nGunakan data berikut yang sudah disusun guru agar dokumen konsisten (jumlah JP, TP, materi, bulan harus sinkron):'+c:''}
 function sig(){
  const d=new Date().toLocaleDateString('id-ID',{day:'numeric',month:'long',year:'numeric'});
- return`<div class="sig"><div>Mengetahui,<br>Kepala Sekolah ${esc(prof.sekolah)}<div class="sp"></div><b><u>${esc(prof.kepsek)}</u></b><br>${prof.nipKepsek?'NIP. '+esc(prof.nipKepsek):''}</div><div>${esc(prof.kota)}, ${d}<br>Guru Mata Pelajaran<div class="sp"></div><b><u>${esc(prof.nama)}</u></b><br>${prof.nip?'NIP. '+esc(prof.nip):''}</div></div>`}
+ const nip=x=>x?'NIP. '+esc(x):'&nbsp;';
+ return`<table class="sig"><tr><td>Mengetahui,</td><td>${esc(prof.kota)}, ${d}</td></tr><tr><td>Kepala Sekolah ${esc(prof.sekolah)}</td><td>Guru Mata Pelajaran</td></tr><tr><td style="height:56pt">&nbsp;</td><td>&nbsp;</td></tr><tr><td><b><u>${esc(prof.kepsek)}</u></b></td><td><b><u>${esc(prof.nama)}</u></b></td></tr><tr><td>${nip(prof.nipKepsek)}</td><td>${nip(prof.nip)}</td></tr></table>`}
 const head=m=>`<p style="text-align:center"><b>${esc(m.n.replace(/^\d+\.\s*/,'').toUpperCase())}</b><br>${esc(prof.sekolah)} · ${esc(prof.mapel)} · Fase ${esc(prof.fase)} / Kelas ${esc(prof.kelas)}<br>Tahun Pelajaran ${esc(prof.ta)}</p>`;
 
 /* ---------- Tampilan ---------- */
@@ -209,7 +229,7 @@ function module(m){
   }catch(e){toast(e.message,1);$('#st').textContent=''}
   finally{busy=false;b.disabled=false;b.textContent='Susun ulang dengan AI'}};
  if(d)out.innerHTML=head(m)+d.html+sig();
- $('#xw').onclick=()=>exportWord(m);$('#xx').onclick=()=>exportExcel(m);$('#xp').onclick=()=>print();
+ $('#xw').onclick=()=>exportWord(m);$('#xx').onclick=()=>exportExcel(m);$('#xp').onclick=()=>doPrint(m);
  $('#xc').onclick=()=>navigator.clipboard.writeText(out.innerText).then(()=>toast('Teks disalin'))}
 function settings(){
  $('#main').innerHTML='<div class="card"><h2>Profil guru & sekolah</h2><p class="muted">Dipakai di semua dokumen, termasuk kolom tanda tangan.</p><div class="grid">'+
@@ -233,13 +253,106 @@ function settings(){
 /* ---------- Ekspor ---------- */
 function dl(blob,name){const a=document.createElement('a');a.href=URL.createObjectURL(blob);a.download=name;a.click();setTimeout(()=>URL.revokeObjectURL(a.href),4000)}
 const fname=(m,e)=>m.n.replace(/^\d+\.\s*/,'').replace(/\W+/g,'_')+'_'+prof.sekolah.replace(/\W+/g,'')+'.'+e;
+/* Rapikan tabel: lebar kolom proporsional, kolom pendek rata tengah */
+function tidy(root){
+ root.querySelectorAll('table').forEach(t=>{
+  if(t.classList.contains('sig'))return;
+  const rows=[...t.rows];if(!rows.length)return;
+  const n=Math.max(...rows.map(r=>[...r.cells].reduce((a,c)=>a+c.colSpan,0)));
+  const wt=Array(n).fill(0),sum=Array(n).fill(0),cnt=Array(n).fill(0),lw=Array(n).fill(0),shortc=Array(n).fill(true);
+  rows.forEach((r,ri)=>{let ci=0;[...r.cells].forEach(c=>{const s=c.textContent.trim();
+   if(c.colSpan===1){const L=Math.min(s.length,70);sum[ci]+=L;cnt[ci]++;lw[ci]=Math.max(lw[ci],...s.split(/\s+/).map(x=>x.length),1);if(ri>0&&s.length>6)shortc[ci]=false}
+   ci+=c.colSpan})});
+  for(let i=0;i<n;i++)wt[i]=Math.max(lw[i]*1.9,Math.min(cnt[i]?sum[i]/cnt[i]:6,45),7);
+  const mins=lw.map(l=>l*1.3+2.5);let pc=wt.map(()=>0),fix=wt.map(()=>false);
+  for(let k=0;k<4;k++){const free=wt.reduce((a,x,i)=>a+(fix[i]?0:x),0),room=100-pc.reduce((a,x,i)=>a+(fix[i]?x:0),0);
+   let ch=false;wt.forEach((x,i)=>{if(fix[i])return;const v=free?x/free*room:room/n;if(v<mins[i]){pc[i]=mins[i];fix[i]=true;ch=true}else pc[i]=v});if(!ch)break}
+  const pt=pc.reduce((a,b)=>a+b,0);
+  const pct=pc.map(x=>(x/pt*100).toFixed(2));
+  t.querySelectorAll('colgroup').forEach(x=>x.remove());
+  const cg=document.createElement('colgroup');cg.innerHTML=pct.map(x=>'<col style="width:'+x+'%" width="'+x+'%">').join('');t.prepend(cg);
+  t.style.width='100%';t.style.tableLayout='fixed';
+  rows.forEach((r,ri)=>{let ci=0;[...r.cells].forEach(c=>{
+   if(c.colSpan===1){c.setAttribute('width',pct[ci]+'%');c.style.width=pct[ci]+'%';if(ri===0||shortc[ci])c.style.textAlign='center'}
+   if(c.tagName==='TH')c.style.textAlign='center';ci+=c.colSpan})})})}
+const isLand=m=>m.id==='promes';
+
+/* PDF / cetak: tanpa tanggal, judul halaman, URL; A4 portrait (Promes lanskap) */
+function doPrint(m){
+ const o=$('#out').cloneNode(true);o.removeAttribute('contenteditable');o.removeAttribute('id');tidy(o);
+ const pv=document.createElement('div');pv.id='pv';
+ pv.innerHTML='<table class="pw"><thead><tr><td><div class="gap"></div></td></tr></thead><tbody><tr><td class="pc"></td></tr></tbody><tfoot><tr><td><div class="gap"></div></td></tr></tfoot></table>';
+ pv.querySelector('.pc').append(o);
+ const st=document.createElement('style');st.id='pgst';st.textContent='@page{size:A4 '+(isLand(m)?'landscape':'portrait')+';margin:0}';
+ document.body.append(pv,st);
+ const old=document.title;document.title=fname(m,'x').replace(/\.x$/,'');
+ const done=()=>{pv.remove();st.remove();document.title=old;removeEventListener('afterprint',done)};
+ addEventListener('afterprint',done);
+ toast('Di jendela cetak pilih "Simpan sebagai PDF" atau printer. Biarkan Margin: Default.');
+ setTimeout(()=>print(),150)}
+
+/* Word: kertas A4, margin standar, tabel rapi */
 function exportWord(m){
- const h='<html xmlns:o="urn:schemas-microsoft-com:office:office" xmlns:w="urn:schemas-microsoft-com:office:word"><head><meta charset="utf-8"><style>@page{size:29.7cm 21cm;mso-page-orientation:landscape;margin:1.6cm}body{font-family:"Times New Roman";font-size:11pt}table{border-collapse:collapse;width:100%}td,th{border:1px solid #000;padding:3pt;vertical-align:top}th{background:#e7eeec}</style></head><body>'+$('#out').innerHTML.replace(/<div class="sig">/,'<table style="border:0"><tr><td style="border:0;width:50%"><div class="sig">').replace(/<div class="sp"><\/div>/g,'<br><br><br>')+'</body></html>';
- dl(new Blob(['\ufeff',h],{type:'application/msword'}),fname(m,'doc'));toast('Word diunduh. Orientasi lanskap diatur otomatis.')}
-function exportExcel(m){
- const t=[...$('#out').querySelectorAll('table')];if(!t.length)return toast('Tidak ada tabel di hasil ini. Pakai Word atau Cetak.',1);
- const wb=XLSX.utils.book_new();t.forEach((x,i)=>XLSX.utils.book_append_sheet(wb,XLSX.utils.table_to_sheet(x),'Tabel '+(i+1)));
- XLSX.writeFile(wb,fname(m,'xlsx'));toast('Excel diunduh')}
+ const land=isLand(m);
+ const o=$('#out').cloneNode(true);o.removeAttribute('contenteditable');tidy(o);
+ o.querySelectorAll('table:not(.sig)').forEach(t=>{t.setAttribute('border','1');t.setAttribute('cellspacing','0');t.setAttribute('cellpadding','4');t.setAttribute('width','100%')});
+ o.querySelectorAll('th').forEach(t=>t.setAttribute('bgcolor','#E6E6E6'));
+ o.querySelectorAll('table.sig').forEach(t=>{t.setAttribute('border','0');t.setAttribute('width','100%');t.insertAdjacentHTML('beforebegin','<p>&nbsp;</p>')});
+ const css='@page Section1{size:'+(land?'29.7cm 21.0cm;mso-page-orientation:landscape':'21.0cm 29.7cm;mso-page-orientation:portrait')+';margin:2cm 1.8cm 2cm 1.8cm}div.Section1{page:Section1}body{font-family:"Times New Roman",serif;font-size:11pt}p{margin:3pt 0}h2,h3,h4{font-family:"Times New Roman",serif;margin:10pt 0 4pt}table{border-collapse:collapse;width:100%;table-layout:fixed}td,th{border:.75pt solid #000;padding:3pt 4pt;vertical-align:top;font-size:10pt}th{background:#e6e6e6;text-align:center;font-weight:bold}table.sig td{border:none;font-size:11pt;width:50%}tr{page-break-inside:avoid}';
+ const h='<html xmlns:o="urn:schemas-microsoft-com:office:office" xmlns:w="urn:schemas-microsoft-com:office:word" xmlns="http://www.w3.org/TR/REC-html40"><head><meta charset="utf-8"><title>'+esc(m.n)+'</title><!--[if gte mso 9]><xml><w:WordDocument><w:View>Print</w:View><w:Zoom>100</w:Zoom></w:WordDocument></xml><![endif]--><style>'+css+'</style></head><body><div class="Section1">'+o.innerHTML+'</div></body></html>';
+ dl(new Blob(['\ufeff',h],{type:'application/msword'}),fname(m,'doc'));toast('Word diunduh. Kertas A4 '+(land?'lanskap':'portrait')+', siap cetak.')}
+
+/* Excel: lembar rapi satu halaman lebar, teks tidak diubah jadi tanggal */
+async function exportExcel(m){
+ const land=isLand(m);
+ const o=$('#out').cloneNode(true);o.querySelectorAll('br').forEach(b=>b.replaceWith('\n'));
+ const tabs=[...o.querySelectorAll('table:not(.sig)')];
+ if(!tabs.length)return toast('Tidak ada tabel di hasil ini. Pakai Word atau PDF.',1);
+ if(typeof ExcelJS==='undefined')return exportExcelHtml(m,o);
+ const T='Times New Roman',txt=c=>c.textContent.replace(/\u00a0/g,' ').trim();
+ const cc=t=>Math.max(...[...t.rows].map(r=>[...r.cells].reduce((a,c)=>a+c.colSpan,0)));
+ const N=Math.max(4,...tabs.map(cc));const W=Array(N).fill(6);
+ tabs.forEach(t=>[...t.rows].forEach(r=>{let ci=0;[...r.cells].forEach(c=>{if(c.colSpan===1){const s=txt(c),L=Math.max(...s.split('\n').map(x=>x.length),1),lw=Math.max(...s.split(/\s+/).map(x=>x.length),1);W[ci]=Math.max(W[ci],Math.min(Math.max(L*.95,lw*1.15),48))}ci+=c.colSpan})}));
+ const wb=new ExcelJS.Workbook();wb.creator=prof.nama;
+ const ws=wb.addWorksheet(m.s.replace(/[\\\/\?\*\[\]:]/g,'').slice(0,28),{pageSetup:{paperSize:9,orientation:land?'landscape':'portrait',fitToPage:true,fitToWidth:1,fitToHeight:0,horizontalCentered:true,margins:{left:.55,right:.55,top:.7,bottom:.7,header:.3,footer:.3}}});
+ ws.columns=W.map(w=>({width:Math.max(5,Math.round(w+1))}));
+ const TW=W.reduce((a,b)=>a+b,0);let r=1;
+ const brd={top:{style:'thin'},left:{style:'thin'},bottom:{style:'thin'},right:{style:'thin'}};
+ const line=(text,o2={})=>{ws.mergeCells(r,1,r,N);const c=ws.getCell(r,1);
+  if(o2.firstBold){const L=text.split('\n');c.value={richText:[{font:{name:T,size:13,bold:true},text:L[0]},{font:{name:T,size:11},text:L.length>1?'\n'+L.slice(1).join('\n'):''}]}}else{c.value=text;c.font={name:T,size:o2.size||11,bold:!!o2.bold}}
+  c.alignment={wrapText:true,vertical:'top',horizontal:o2.center?'center':'left'};
+  const n=text.split('\n').reduce((a,l)=>a+Math.max(1,Math.ceil(l.length*1.1/TW)),0);ws.getRow(r).height=Math.max(16,n*15.5);r++};
+ for(const el of [...o.children]){
+  const tg=el.tagName;
+  if(/^H[1-4]$/.test(tg)){r++;line(txt(el),{bold:true,size:12})}
+  else if(tg==='P'){const s=txt(el);if(!s)continue;const ctr=el.style.textAlign==='center';line(s,{center:ctr,firstBold:ctr})}
+  else if(tg==='UL'||tg==='OL'){[...el.children].forEach((li,i)=>line((tg==='OL'?(i+1)+'. ':'• ')+txt(li)))}
+  else if(tg==='TABLE'&&el.classList.contains('sig')){
+   r++;const hf=Math.floor(N/2);
+   [...el.rows].forEach(tr=>{const a=txt(tr.cells[0]),b=txt(tr.cells[1]),bold=!!tr.cells[0].querySelector('b');
+    if(hf>=1)ws.mergeCells(r,1,r,hf);ws.mergeCells(r,hf+1,r,N);
+    const ca=ws.getCell(r,1),cb=ws.getCell(r,hf+1);ca.value=a;cb.value=b;
+    for(const c of[ca,cb]){c.font={name:T,size:11,bold,underline:bold};c.alignment={horizontal:'center',vertical:'top'}}
+    if(!a&&!b)ws.getRow(r).height=48;r++})}
+  else if(tg==='TABLE'){
+   r++;
+   [...el.rows].forEach((tr,ri)=>{let ci=1;const cells=[...tr.cells];
+    cells.forEach((c,k)=>{let sp=c.colSpan;if(k===cells.length-1)sp=N-ci+1;
+     if(sp>1)ws.mergeCells(r,ci,r,ci+sp-1);
+     const x=ws.getCell(r,ci),s=txt(c),head=ri===0||c.tagName==='TH';
+     x.value=/^\d{1,6}$/.test(s)&&!head?Number(s):s;
+     x.font={name:T,size:10.5,bold:head||!!c.querySelector('b')};
+     x.alignment={wrapText:true,vertical:head?'middle':'top',horizontal:(head||/^\d{1,6}$/.test(s)||(c.style.textAlign==='center'))?'center':'left'};
+     if(head)x.fill={type:'pattern',pattern:'solid',fgColor:{argb:'FFE6E6E6'}};
+     for(let k2=ci;k2<ci+sp;k2++)ws.getCell(r,k2).border=brd;
+     ci+=sp});r++})}
+ }
+ const buf=await wb.xlsx.writeBuffer();
+ dl(new Blob([buf],{type:'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'}),fname(m,'xlsx'));toast('Excel diunduh. Lebar kolom dan halaman A4 sudah diatur.')}
+function exportExcelHtml(m,o){
+ tidy(o);o.querySelectorAll('table:not(.sig)').forEach(t=>{t.setAttribute('border','1')});
+ const h='<html xmlns:o="urn:schemas-microsoft-com:office:office" xmlns:x="urn:schemas-microsoft-com:office:excel"><head><meta charset="utf-8"><!--[if gte mso 9]><xml><x:ExcelWorkbook><x:ExcelWorksheets><x:ExcelWorksheet><x:Name>'+esc(m.s)+'</x:Name><x:WorksheetOptions><x:Print><x:PaperSizeIndex>9</x:PaperSizeIndex><x:FitWidth>1</x:FitWidth><x:FitHeight>0</x:FitHeight></x:Print></x:WorksheetOptions></x:ExcelWorksheet></x:ExcelWorksheets></x:ExcelWorkbook></xml><![endif]--><style>table{border-collapse:collapse;width:100%}td,th{border:.5pt solid #000;padding:3pt;vertical-align:top;mso-number-format:"\\@";font-family:"Times New Roman"}th{background:#e6e6e6}table.sig td{border:none}</style></head><body>'+o.innerHTML+'</body></html>';
+ dl(new Blob(['\ufeff',h],{type:'application/vnd.ms-excel'}),fname(m,'xls'));toast('Excel diunduh (mode cadangan, library Excel tidak termuat).')}
 
 const GS=`const SECRET = 'GANTI_DENGAN_KODE_RAHASIA_ANDA';
 const NAMA = 'spena_sync.json';
