@@ -103,10 +103,13 @@ html,body{background:#fff!important}
 #app,#login,#toast,#scrim{display:none!important}
 #pv{display:block;color:#000;width:100%;margin:0;padding:0}
 #pv .pc{width:auto;min-height:0}
-#pv table{break-inside:auto;page-break-inside:auto}
-#pv tr{break-inside:avoid;page-break-inside:avoid}
+#pv .pw{width:100%;border-collapse:collapse;border:0}
+#pv .pw>thead>tr>td,#pv .pw>tbody>tr>td,#pv .pw>tfoot>tr>td{border:0;padding:0}
+#pv .pw>thead{display:table-header-group}
+#pv .pw>tfoot{display:table-footer-group}
+#pv .pw>tbody>tr,#pv table{break-inside:auto;page-break-inside:auto}
 #pv thead{display:table-header-group}
-#pv tfoot{display:table-footer-group}
+#pv .pc table thead{display:table-header-group}
 }
 </style>
 </head>
@@ -137,7 +140,7 @@ const esc=s=>String(s).replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;',
 async function sha(s){const b=await crypto.subtle.digest('SHA-256',new TextEncoder().encode('spena|'+s));return[...new Uint8Array(b)].map(x=>x.toString(16).padStart(2,'0')).join('')}
 
 /* ---------- Modul ---------- */
-const SYS=()=>`Anda adalah konsultan administrasi guru profesional SMP untuk Kurikulum Merdeka/Kurikulum Mendalam (Deep Learning) di Indonesia. Prioritaskan kesinambungan antarpertemuan, keterukuran tujuan, diferensiasi, asesmen formatif, serta integrasi literasi dan numerasi yang relevan dengan mata pelajaran. Tulis dalam Bahasa Indonesia baku (istilah mapel boleh Inggris). Patuhi regulasi: CP mengacu Keputusan BSKAP No. 046/H/KR/2025, istilah "murid", Dimensi Profil Lulusan (DPL). Keluaran WAJIB berupa Markdown: gunakan tabel Markdown untuk data tabular, jangan memakai blok kode, jangan menulis kalimat pembuka atau penutup, dan jangan menambahkan tanda tangan (sudah ditambahkan aplikasi). Jangan mengarang data kalender: jika data tidak cukup, tulis asumsi di baris "Catatan". GAYA TULIS WAJIB HUMANIS DAN NATURAL seperti dokumen guru profesional: gunakan kalimat sederhana, jelas, langsung, dan tidak terasa seperti keluaran AI. HINDARI LaTeX, simbol matematika bergaya kode, tanda dolar, backslash, panah Unicode, emoji, ikon, dekorasi, bullet aneh, dan karakter khusus yang tidak diperlukan. Jangan menulis pola seperti \text{}, \rightarrow, $, \( \), atau rumus dalam format LaTeX. Untuk rumus bahasa gunakan teks biasa, misalnya "Subject + Verb 2 + Complement". Jika perlu panah perubahan kata kerja, tulis dengan kata "menjadi". Gunakan tanda baca dan penomoran biasa. Hindari frasa generik seperti "tentu saja", "tentunya", "dengan demikian" berulang-ulang. Hasil harus terasa seperti ditulis guru SMP untuk dipakai langsung di kelas.
+const SYS=()=>`Anda adalah konsultan administrasi guru profesional SMP untuk Kurikulum Merdeka/Kurikulum Mendalam (Deep Learning) di Indonesia. Prioritaskan kesinambungan antarpertemuan, keterukuran tujuan, diferensiasi, asesmen formatif, serta integrasi literasi dan numerasi yang relevan dengan mata pelajaran. Tulis dalam Bahasa Indonesia baku (istilah mapel boleh Inggris). Patuhi regulasi: CP mengacu Keputusan BSKAP No. 046/H/KR/2025, istilah "murid", Dimensi Profil Lulusan (DPL). Keluaran WAJIB berupa Markdown: gunakan tabel Markdown untuk data tabular, jangan memakai blok kode, jangan menulis kalimat pembuka atau penutup, dan jangan menambahkan tanda tangan (sudah ditambahkan aplikasi). Jangan mengarang data kalender: jika data tidak cukup, tulis asumsi di baris "Catatan". GAYA TULIS WAJIB HUMANIS DAN NATURAL seperti dokumen guru profesional: gunakan kalimat sederhana, jelas, langsung, dan tidak terasa seperti keluaran AI. HINDARI LaTeX, simbol matematika bergaya kode, tanda dolar, backslash, panah Unicode, emoji, ikon, dekorasi, bullet aneh, dan karakter khusus yang tidak diperlukan. Jangan menulis pola seperti \text{}, \rightarrow, $, \( \), atau rumus dalam format LaTeX. Untuk rumus bahasa gunakan teks biasa, misalnya "Subject + Verb 2 + Complement". Jika perlu panah perubahan kata kerja, tulis dengan kata "menjadi". Gunakan tanda baca dan penomoran biasa. Hindari frasa generik seperti "tentu saja", "tentunya", "dengan demikian" berulang-ulang. Hasil harus terasa seperti ditulis guru SMP untuk dipakai langsung di kelas. ATURAN FORMAT: di dalam sel tabel, tulis setiap langkah atau butir pada baris terpisah memakai tag <br> dengan penomoran berurutan 1., 2., 3. (satu nomor untuk satu langkah, nomor tidak boleh diulang dari 1 dan tidak boleh digabung dalam satu paragraf). Untuk soal bernomor, nomor harus naik berurutan (1, 2, 3, dst) sepanjang bagian soal. Jangan memakai tanda pagar (#) di dalam teks atau sel tabel; judul bagian cukup memakai ## atau ###.
 Identitas: Sekolah ${prof.sekolah}; Guru ${prof.nama}; Mapel ${prof.mapel}; Fase ${prof.fase}, Kelas ${prof.kelas}; Tahun Pelajaran ${prof.ta}; ${prof.jp} JP per minggu (1 JP = 40 menit).`;
 const MODS=[
 {id:'rpe',n:'1. Rincian Pekan Efektif',s:'RPE',desc:'Unggah kalender pendidikan (gambar, PDF, Excel, Word) atau ketik data libur/kegiatan.',
@@ -322,20 +325,39 @@ function cleanAIText(s){
  s=s.replace(/^\s*[•▪◦◆◇]+\s*/gm,'');
  return s.trim();
 }
+function stepify_(s,nl){
+ s=String(s||'');
+ s=s.replace(/([.!?)”"])\s+(Tahap\s+\d+\s*:)/g,'$1'+nl+'$2');
+ const f=/(^|[\s>])1[.)]\s+\S/.exec(s);
+ if(!f||!/[\s>]2[.)]\s+\S/.test(s))return s;
+ let pos=f.index+f[1].length,n=1,out=s.slice(0,pos).replace(/[ \t]+$/,'');
+ if(out&&out.slice(-nl.length)!==nl)out+=nl;
+ for(;;){
+  const re=new RegExp('([.!?:;)”"\']|<br>|\\n)\\s+'+(n+1)+'[.)]\\s+(?=\\S)','g');
+  re.lastIndex=pos+2;
+  const m=re.exec(s);
+  if(!m){out+=s.slice(pos);break}
+  const mk=new RegExp((n+1)+'[.)]\\s+$').exec(m[0]);
+  const cut=m.index+m[1].length;
+  out+=s.slice(pos,cut)+nl;
+  pos=m.index+mk.index;n++}
+ return out}
 function md(s){
  s=cleanAIText(s);
- s=s.replace(/^```\w*\n?|```$/gm,'').trim();const L=s.split('\n');let o='',i=0;
- const inl=t=>esc(t).replace(/\*\*(.+?)\*\*/g,'<b>$1</b>').replace(/(^|[^*])\*(?!\s)(.+?)\*/g,'$1<i>$2</i>').replace(/&lt;br\s*\/?&gt;/g,'<br>');
+ s=s.replace(/^```\w*\n?|```$/gm,'').trim();const L=s.split('\n');let o='',i=0,lastNum=null;
+ const inl=t=>esc(String(t).replace(/(^|\s)#{2,6}(?=\s)/g,'$1').replace(/^\s*#\s+/,'')).replace(/\*\*(.+?)\*\*/g,'<b>$1</b>').replace(/(^|[^*])\*(?!\s)(.+?)\*/g,'$1<i>$2</i>').replace(/&lt;br\s*\/?&gt;/g,'<br>');
  const cells=l=>l.trim().replace(/^\||\|$/g,'').split('|').map(c=>c.trim());
  while(i<L.length){const l=L[i];
   if(/^\s*\|/.test(l)&&/^\s*\|?\s*:?-{2,}/.test(L[i+1]||'')){
    const h=cells(l);i+=2;let rows=[];while(i<L.length&&/^\s*\|/.test(L[i]))rows.push(cells(L[i++]));
    o+='<table><thead><tr>'+h.map(c=>'<th>'+inl(c)+'</th>').join('')+'</tr></thead><tbody>'+rows.map(r=>{
      const only=r.filter(Boolean);const sp=only.length===1&&r.length>2&&r[0];
-     return sp?'<tr><td colspan="'+h.length+'"><b>'+inl(r[0])+'</b></td></tr>':'<tr>'+h.map((_,k)=>'<td>'+inl(r[k]||'')+'</td>').join('')+'</tr>'}).join('')+'</tbody></table>';continue}
+     return sp?'<tr><td colspan="'+h.length+'"><b>'+inl(r[0])+'</b></td></tr>':'<tr>'+h.map((_,k)=>'<td>'+inl(stepify_(r[k]||'','<br>'))+'</td>').join('')+'</tr>'}).join('')+'</tbody></table>';continue}
   let m;
-  if(m=l.match(/^(#{1,4})\s+(.*)/)){o+='<h'+Math.min(m[1].length+1,4)+'>'+inl(m[2])+'</h'+Math.min(m[1].length+1,4)+'>'}
-  else if(/^\s*([-*]|\d+[.)])\s+/.test(l)){const ord=/^\s*\d/.test(l);let it='';while(i<L.length&&/^\s*([-*]|\d+[.)])\s+/.test(L[i]))it+='<li>'+inl(L[i++].replace(/^\s*([-*]|\d+[.)])\s+/,''))+'</li>';o+=(ord?'<ol>':'<ul>')+it+(ord?'</ol>':'</ul>');continue}
+  if((m=l.match(/^\s*(#{1,6})\s*(\S.*)$/))){o+='<h'+Math.min(m[1].length+1,4)+'>'+inl(m[2])+'</h'+Math.min(m[1].length+1,4)+'>';lastNum=null}
+  else if(/^\s*([-*]|\d+[.)])\s+/.test(l)){const ord=/^\s*\d/.test(l);let first=ord?parseInt(l.match(/^\s*(\d+)/)[1]):1,cnt=0,it='';while(i<L.length&&/^\s*([-*]|\d+[.)])\s+/.test(L[i])){it+='<li>'+inl(L[i++].replace(/^\s*([-*]|\d+[.)])\s+/,''))+'</li>';cnt++}
+   if(ord){if(cnt===1&&first===1&&lastNum!==null)first=lastNum+1;lastNum=first+cnt-1}
+   o+=(ord?'<ol start="'+first+'">':'<ul>')+it+(ord?'</ol>':'</ul>');continue}
   else if(/^\s*---+\s*$/.test(l)){o+='<hr>'}
   else if(l.trim()){o+='<p>'+inl(l)+'</p>'}
   i++}
@@ -592,26 +614,32 @@ function hPara_(pp,d,dflt){
  if(pp.t==='img')return '<div style="text-align:'+(pp.al==='center'?'center':'left')+'"><img src="'+LOGO_URI+'" style="width:'+(pp.w/12700).toFixed(1)+'pt;height:'+(pp.h/12700).toFixed(1)+'pt"></div>';
  if(pp.t==='pb')return '<div style="break-after:page;height:0"></div>';
  const al=pp.al||dflt.al,sz=(pp.sz||dflt.sz||d.sz)/2,font=pp.font||dflt.font||d.font,line=pp.line||dflt.line||240;
- const st='margin:'+PT_(pp.sb??dflt.sb??0)+' '+PT_(pp.ir||0)+' '+PT_(pp.sa??dflt.sa??0)+' '+PT_((pp.il||0))+';'+(pp.hang?'text-indent:-'+PT_(pp.hang)+';':'')+'font:'+sz+'pt/'+(1.15*line/240).toFixed(3)+' \''+font+'\',sans-serif;'+(al?'text-align:'+(al==='both'?'justify':al)+';':'');
+ const st='margin:'+PT_(pp.sb??dflt.sb??0)+' '+PT_(pp.ir||0)+' '+PT_(pp.sa??dflt.sa??0)+' '+PT_((pp.il||0))+';'+(pp.hang?'text-indent:-'+PT_(pp.hang)+';':'')+'font:'+sz+'pt/'+(1.15*line/240).toFixed(3)+' \''+font+'\',sans-serif;orphans:2;widows:2;'+(al?'text-align:'+(al==='both'?'justify':al)+';':'');
  const pd={b:pp.b??dflt.b,i:pp.i,u:pp.u,color:pp.color};
- const inner=pp.runs.map(rn=>{const o={...pd,...rn};let s='';if(o.b)s+='font-weight:bold;';if(o.i)s+='font-style:italic;';if(o.u)s+='text-decoration:underline;';if(o.color)s+='color:#'+o.color+';';if(o.hl)s+='background:'+(o.hl==='yellow'?'#ffff00':'#'+o.hl)+';';if(o.sz)s+='font-size:'+o.sz/2+'pt;';
+ const inner=pp.runs.map((rn,ix)=>{const o={...pd,...rn};let s='';if(o.b)s+='font-weight:bold;';if(o.i)s+='font-style:italic;';if(o.u)s+='text-decoration:underline;';if(o.color)s+='color:#'+o.color+';';if(o.hl)s+='background:'+(o.hl==='yellow'?'#ffff00':'#'+o.hl)+';';if(o.sz)s+='font-size:'+o.sz/2+'pt;';
+  if(ix===0&&pp.hang&&/\t$/.test(String(o.x)))return '<span style="display:inline-block;text-indent:0;width:'+PT_(pp.hang)+';'+s+'">'+X(String(o.x).replace(/\t$/,''))+'</span>';
   return '<span'+(s?' style="'+s+'"':'')+'>'+X(o.x).replace(/\n/g,'<br>').replace(/\t/g,'&emsp;')+'</span>'}).join('');
  return '<p style="'+st+'">'+(pp.runs.some(z=>String(z.x).trim()!=='')?inner:'&nbsp;')+'</p>'}
 function hTbl_(t,d){const tot=sum_(t.grid),b=t.border===null?null:(t.border||{sz:4,color:'000000'}),m=t.mar||{t:0,l:108,b:0,r:108};
- const bs=b?(Math.max(b.sz,4)/8).toFixed(2)+'pt solid #'+(b.color==='auto'?'000':b.color):'0 none';
- let x='<table style="width:'+PT_(tot)+';table-layout:fixed;border-collapse:collapse;margin-left:'+PT_(t.ind||0)+';font-family:\''+d.font+'\'"><colgroup>'+t.grid.map(g=>'<col style="width:'+PT_(g)+'">').join('')+'</colgroup>';
- layout_(t).forEach(R=>{x+='<tr style="'+(R.row.h?'height:'+PT_(R.row.h)+';':'')+'break-inside:avoid">';
+ const bs=b?(Math.max(b.sz,4)/8).toFixed(2)+'pt solid #'+(b.color==='auto'?'000':b.color):'0 none',pc=g=>(g/tot*100).toFixed(3)+'%';
+ let x='<table style="width:'+(t.ind?'calc(100% - '+PT_(t.ind)+')':'100%')+';table-layout:fixed;border-collapse:collapse;margin-left:'+PT_(t.ind||0)+';font-family:\''+d.font+'\'"><colgroup>'+t.grid.map(g=>'<col style="width:'+pc(g)+'">').join('')+'</colgroup>';
+ layout_(t).forEach(R=>{x+='<tr style="'+(R.row.h?'height:'+PT_(R.row.h)+';':'')+'break-inside:'+(R.row.cant?'avoid':'auto')+'">';
   R.cells.forEach(o=>{if(o.skip)return;const c=o.c,w=sum_(t.grid.slice(o.col,o.col+o.span));
-   x+='<td'+(o.span>1?' colspan="'+o.span+'"':'')+(o.rs>1?' rowspan="'+o.rs+'"':'')+' style="width:'+PT_(w)+';padding:'+PT_(m.t)+' '+PT_(m.r)+' '+PT_(m.b)+' '+PT_(m.l)+';border:'+bs+';vertical-align:'+(c.va==='center'?'middle':'top')+';'+(c.fill?'background:#'+c.fill+';-webkit-print-color-adjust:exact;print-color-adjust:exact;':'')+'overflow-wrap:anywhere">'+(c.ps.length?c.ps:[p_('')]).map(pp=>hPara_(pp,d,{al:c.al,sz:c.sz,b:c.b,sb:c.sb,sa:c.sa,font:c.font})).join('')+'</td>'});
+   x+='<td'+(o.span>1?' colspan="'+o.span+'"':'')+(o.rs>1?' rowspan="'+o.rs+'"':'')+' style="width:'+pc(w)+';padding:'+PT_(m.t)+' '+PT_(m.r)+' '+PT_(m.b)+' '+PT_(m.l)+';border:'+bs+';vertical-align:'+(c.va==='center'?'middle':'top')+';'+(c.fill?'background:#'+c.fill+';-webkit-print-color-adjust:exact;print-color-adjust:exact;':'')+'overflow-wrap:anywhere">'+(c.ps.length?c.ps:[p_('')]).map(pp=>hPara_(pp,d,{al:c.al,sz:c.sz,b:c.b,sb:c.sb,sa:c.sa,font:c.font})).join('')+'</td>'});
   x+='</tr>'});
  return x+'</table>'}
 function toHtml_(ir){return ir.body.map(b=>b.t==='tbl'?hTbl_(b,ir)+'<p style="margin:0;font-size:1pt;line-height:1pt">&nbsp;</p>':hPara_(b,ir,{})).join('')}
 function printIR_(ir,title){
  const pg=ir.page,mm=tw=>(tw/56.6929).toFixed(2)+'mm';
- const pv=document.createElement('div');pv.id='pv';
- pv.innerHTML='<div class="pc" style="padding:'+mm(pg.t)+' '+mm(pg.r)+' '+mm(pg.b)+' '+mm(pg.l)+'"></div>';
+ const mobile=/Android|iPhone|iPad|iPod|Mobile/i.test(navigator.userAgent)||(navigator.maxTouchPoints>1&&/Macintosh/.test(navigator.userAgent));
+ const pv=document.createElement('div');pv.id='pv';const st=document.createElement('style');st.id='pgst';
+ if(mobile){ /* HP/tablet: margin asli @page, konsisten di setiap halaman (tidak ada header/footer di cetak Android) */
+  pv.innerHTML='<div class="pc"></div>';
+  st.textContent='@page{size:'+mm(pg.w)+' '+mm(pg.h)+';margin:'+mm(pg.t)+' '+mm(pg.r)+' '+mm(pg.b)+' '+mm(pg.l)+'}'}
+ else{ /* komputer: margin 0 agar header/footer browser hilang, ruang atas-bawah diulang tiap halaman lewat thead/tfoot */
+  pv.innerHTML='<table class="pw"><thead><tr><td><div style="height:'+mm(pg.t)+'"></div></td></tr></thead><tbody><tr><td class="pc" style="padding:0 '+mm(pg.r)+' 0 '+mm(pg.l)+'"></td></tr></tbody><tfoot><tr><td><div style="height:'+mm(pg.b)+'"></div></td></tr></tfoot></table>';
+  st.textContent='@page{size:'+mm(pg.w)+' '+mm(pg.h)+';margin:0}'}
  pv.querySelector('.pc').innerHTML=toHtml_(ir);
- const st=document.createElement('style');st.id='pgst';st.textContent='@page{size:'+mm(pg.w)+' '+mm(pg.h)+';margin:0}';
  document.body.append(pv,st);const old=document.title;document.title=title;
  const done=()=>{pv.remove();st.remove();document.title=old;removeEventListener('afterprint',done)};
  addEventListener('afterprint',done);setTimeout(()=>print(),150)}
@@ -645,13 +673,15 @@ function toXlsHtml_(ir,name){
 /* ================= PENYUSUN: hasil AI -> rancangan dokumen sesuai template sekolah ================= */
 const LOGO_URI='data:image/png;base64,'+LOGO_B64;
 function parseOut_(root){const out=[];
+ const rt=rs=>rs.map(r=>r.x).join('').replace(/\u00a0/g,' ').trim();
  const runsOf=el=>{const rs=[];const walk=(n,st)=>n.childNodes.forEach(c=>{if(c.nodeType===3){if(c.textContent)rs.push({x:c.textContent.replace(/\u00a0/g,' '),b:st.b,i:st.i})}else if(c.tagName==='BR')rs.push({x:'\n'});else{const s={...st};if(/^(B|STRONG|TH)$/.test(c.tagName))s.b=true;if(/^(I|EM)$/.test(c.tagName))s.i=true;walk(c,s)}});walk(el,{});return rs};
  [...root.children].forEach(el=>{const tg=el.tagName;
   if(/^H[1-6]$/.test(tg))out.push({k:'h',text:el.textContent.trim(),runs:runsOf(el)});
   else if(tg==='P'){const t=el.textContent.trim();if(t)out.push({k:'p',text:t,runs:runsOf(el)})}
-  else if(tg==='UL'||tg==='OL')out.push({k:'l',ord:tg==='OL',items:[...el.children].map(li=>({text:li.textContent.trim(),runs:runsOf(li)}))});
-  else if(tg==='TABLE'&&!el.classList.contains('sig'))out.push({k:'t',rows:[...el.rows].map(r=>[...r.cells].map(c=>({text:c.textContent.replace(/\u00a0/g,' ').trim(),runs:runsOf(c),th:c.tagName==='TH',span:c.colSpan})))})});
+  else if(tg==='UL'||tg==='OL')out.push({k:'l',ord:tg==='OL',start:+el.getAttribute('start')||1,items:[...el.children].map(li=>({text:li.textContent.trim(),runs:runsOf(li)}))});
+  else if(tg==='TABLE'&&!el.classList.contains('sig'))out.push({k:'t',rows:[...el.rows].map(r=>[...r.cells].map(c=>{const rn=runsOf(c);return{text:stepify_(rt(rn),'\n'),runs:rn,th:c.tagName==='TH',span:c.colSpan}}))})});
  return out}
+const numOf_=(x,i)=>x.ord?((x.start||1)+i)+'.':'•';
 const nodesOf_=id=>{const d=document.createElement('div');d.innerHTML=(data[id]&&data[id].html)||'';return parseOut_(d)};
 const tgl_=()=>new Date().toLocaleDateString('id-ID',{day:'numeric',month:'long',year:'numeric'});
 const pgA4=(t,r,b,l,land)=>({w:land?16838:11906,h:land?11906:16838,t,r,b,l,land:!!land});
@@ -669,11 +699,21 @@ function autoGrid_(rows,W,fixed){const n=Math.max(...rows.map(r=>r.reduce((a,c)=
  rows.forEach(r=>{let ci=0;r.forEach(c=>{if((c.span||1)===1){sum[ci]+=Math.min(c.text.length,70);cnt[ci]++;lw[ci]=Math.max(lw[ci],...c.text.split(/\s+/).map(x=>x.length))}ci+=c.span||1})});
  const wt=sum.map((s,i)=>Math.max(lw[i]*1.9,Math.min(cnt[i]?s/cnt[i]:6,45),7)),tot=sum_(wt);let g=wt.map(x=>Math.max(380,Math.round(x/tot*W)));const d=sum_(g)-W;g[g.indexOf(Math.max(...g))]-=d;return g}
 /* tabel isi AI -> tabel bergaya template (header abu-abu, baris judul semester) */
+function cellParas_(c,hdr,split,al,sz,font){
+ let ls=String(c.text||'').split('\n').map(s=>s.trim()).filter(Boolean);
+ if(split)ls=ls.flatMap(s=>splitNum_(s));
+ if(!ls.length)ls=[''];
+ const full=String(c.text||'').trim();
+ return ls.map(t=>{let m;const o={al,sz,font};
+  if(hdr)return p_([{x:t,b:true,color:'FFFFFF'}],o);
+  if((m=t.match(/^(\d{1,2})[.)]\s+(.*)$/)))return p_([{x:m[1]+'.\t'},{x:m[2]}],{...o,al:al==='center'?'left':al,il:300,hang:300});
+  if((m=t.match(/^[•\-]\s+(.*)$/)))return p_([{x:'•\t'},{x:m[1]}],{...o,al:al==='center'?'left':al,il:300,hang:300});
+  return p_(ls.length===1&&c.runs.some(x=>x.b)&&t===full?c.runs:[{x:t}],o)})}
 function gTbl_(rows,W,o={}){const grid=o.grid||autoGrid_(rows,W),n=grid.length,sz=o.sz,font=o.font;const brd=o.border||{sz:4,color:'000000'};const hf=o.hdrFill||'0789DF',sf=o.secFill||'DCEEFF';
  const out=rows.map((r,ri)=>{const only=r.filter(c=>c.text);const isSec=r.length===1||(only.length===1&&r.length>2&&only[0]===r[0]&&ri>0);
   if(isSec)return{cells:[c_(p_(r[0].text,{al:'center',b:true,sz,font,color:'3A0B4A'}),{span:n,fill:sf})],cant:true};
   const hdr=ri===0&&(r[0].th||o.firstHdr!==false);
-  return{hdr,cant:true,h:hdr?o.hdrH:0,cells:r.map((c,ci)=>{const num=o.numCols&&o.numCols.includes(ci);const ps=(o.splitCols&&o.splitCols.includes(ci)?splitNum_(c.text):[c.text]).map(t=>p_(hdr?[{x:t,b:true,color:'FFFFFF'}]:(c.runs.some(x=>x.b)&&t===c.text?c.runs:[{x:t}]),{al:hdr||num?'center':(o.al||'left'),sz,font}));
+  return{hdr,cant:true,h:hdr?o.hdrH:0,cells:r.map((c,ci)=>{const num=o.numCols&&o.numCols.includes(ci);const ps=cellParas_(c,hdr,o.splitCols&&o.splitCols.includes(ci),hdr||num?'center':(o.al||'left'),sz,font);
    return c_(ps,{fill:hdr?hf:undefined,va:hdr?'center':undefined})})}});
  return tbl_(grid,out,{border:brd,mar:o.mar||{t:0,l:60,b:0,r:60}})}
 const B={};
@@ -698,7 +738,7 @@ B.cp=n=>{const body=[...cover_('',['CAPAIAN PEMBELAJARAN (CP)']),
  let hn=0;n.forEach(x=>{
   if(x.k==='h'){hn++;body.push(p_(hn+'. '+x.text.replace(/^[A-Z0-9]+[.)]\s*/,''),{b:true,al:'both',line:276,sa:200,keep:true}))}
   else if(x.k==='p')body.push(p_(lead_(x.text,x.runs),{al:'both',line:276,sa:200,il:720}));
-  else if(x.k==='l')x.items.forEach((it,i)=>body.push(p_([{x:(x.ord?(i+1)+'.':'•')+'\t'},...lead_(it.text,it.runs)],{al:'both',line:276,il:1134,hang:414})));
+  else if(x.k==='l')x.items.forEach((it,i)=>body.push(p_([{x:numOf_(x,i)+'\t'},...lead_(it.text,it.runs)],{al:'both',line:276,il:1134,hang:414})));
   else if(x.k==='t')body.push(gTbl_(x.rows,9356,{grid:x.rows[0].length===2?[3064,6292]:undefined,hdrFill:'FFFFFF',hdrH:454,secFill:'D9D9D9'}))});
  return{page:pgA4(1701,1134,1134,1701),font:'Arial',sz:22,body}};
 /* ---- TP, ATP, Prota (dan KKTP memakai gaya yang sama) ---- */
@@ -737,7 +777,8 @@ B.rpm=n=>{const F='Arial',sz=22,t=n.find(x=>x.k==='t');const rows=t?t.rows:[];
  const sel=(()=>{const c=get('Dimensi');const s=c?c.text:'';const m=s.match(/\d/g)||[];return new Set(m.map(Number))})();
   const rpmMeta=data.rpm||{};
  const G=[1834,1984,556,2003,2827];const P=(t,o={})=>p_(t,{sz,font:F,...o});
- const paras=lab=>{const c=get(lab);if(!c)return[P('')];const ps=c.text.split(/\n|\s*\u2022\s*/).map(s=>s.trim()).filter(Boolean);return ps.length?ps.map((s,i)=>P(c.text.includes('\u2022')&&i>0?'\u2022 '+s:s)):[P('')]};
+ const paras=lab=>{const c=get(lab);if(!c)return[P('')];const ls=c.text.replace(/\s*\u2022\s*/g,'\n• ').split('\n').map(s=>s.trim()).filter(Boolean);
+  return ls.length?ls.map(s=>{let m;if((m=s.match(/^(\d{1,2})[.)]\s+(.*)$/)))return P([{x:m[1]+'.\t'},{x:m[2]}],{il:340,hang:340});if((m=s.match(/^[•\-]\s*(.*)$/)))return P([{x:'•\t'},{x:m[1]}],{il:340,hang:340});if((m=s.match(/^(Tahap\s+\d+\s*:[^.]{1,90}\.?)(.*)$/)))return P([{x:m[1],b:true},{x:m[2]}]);return P(s)}):[P('')]};
  const A=(label,paraList,o={})=>({cells:[o.g||c_(P('')),c_(P(label,{b:true})),c_(paraList,{span:3})]});
  const grp=(t,vm)=>c_(P(t,{b:true}),{vm,va:'center'});
  const cont=()=>c_(P(''),{vm:'c'});
@@ -761,7 +802,7 @@ B.rpm=n=>{const F='Arial',sz=22,t=n.find(x=>x.k==='t');const rows=t?t.rows:[];
  const doc=[p_('PERENCANAAN PEMBELAJARAN MENDALAM',{al:'center',b:true,color:'3A0B4A',sa:24}),p_('',{}),
   kv_([['SEKOLAH',prof.sekolah.toUpperCase()],['NAMA GURU',prof.nama.toUpperCase().replace('S.PD.','S.Pd.')],['MATA PELAJARAN',prof.mapel.toUpperCase()],['KELAS / SEMESTER','VIII/'+((data.promes&&data.promes.sem==='Genap')?'2':'1')],['MATERI',(data.rpm&&data.rpm.materi)||''],['ALOKASI WAKTU',(data.rpm&&data.rpm.alok)||'']],[2600,200,5500],{bl:true,bv:true,ind:851}),p_('',{}),
   tbl_(G,R,{border:{sz:8,color:'000000'},mar:{t:107,l:101,b:0,r:68}}),p_('',{}),sig_([4536,4538],'Arial',22,{al:'left',kapsek:true,gap:1000})];
- n.filter(x=>x!==t).forEach((x,i)=>{if(i===0)doc.push({t:'pb'});if(x.k==='h')doc.push(p_(x.text,{b:true,sb:160,sa:60,keep:true}));else if(x.k==='p')doc.push(p_(x.runs,{al:'both',sa:80}));else if(x.k==='l')x.items.forEach((it,k)=>doc.push(p_([{x:(x.ord?(k+1)+'.':'•')+'\t'},...it.runs],{il:465,hang:360})));else if(x.k==='t')doc.push(gTbl_(x.rows,9074,{sz:20,hdrH:0}),p_('',{}))});
+ n.filter(x=>x!==t).forEach((x,i)=>{if(i===0)doc.push({t:'pb'});if(x.k==='h')doc.push(p_(x.text,{b:true,sb:160,sa:60,keep:true}));else if(x.k==='p'){const op=/^\s*[A-Ea-e][.)]\s/.test(x.text)||/^(Jawaban|Answer|ANS)\s*:/i.test(x.text);doc.push(p_(x.runs,{al:op?'left':'both',sa:op?30:80,il:op?700:0}))}else if(x.k==='l')x.items.forEach((it,k)=>doc.push(p_([{x:numOf_(x,k)+'\t'},...it.runs],{il:465,hang:360})));else if(x.k==='t')doc.push(gTbl_(x.rows,9074,{sz:20,hdrH:0}),p_('',{}))});
  return{page:pgA4(1701,1134,1134,1701),font:F,sz,body:doc}};
 /* ---- Pemformatan soal profesional: nomor berurutan, opsi terpisah, kunci di akhir ---- */
 function appendAssessment_(body,n,F,sz,mode){
@@ -803,8 +844,8 @@ function appendAssessment_(body,n,F,sz,mode){
     if(op){pushText([{x:op[1].toUpperCase()+'. ',b:true},{x:op[2]}],null,{il:500,sa:35});return;}
     const num=numbered(t);
     if(mode==='exam' && x.ord){qNo++;pushText([{x:qNo+'. ',b:true},{x:(num?num[1]:t)}],null,{sb:50,sa:55});return;}
-    if(num){if(inQuestions)qNo++;pushText([{x:(inQuestions?qNo:i+1)+'. ',b:true},{x:num[1]}],null,{sb:50,sa:55});}
-    else pushText([{x:(x.ord?i+1+'.':'')+'\t'},...(it.runs||[{x:t}])],null,{il:465,hang:360,sa:55});
+    if(num){if(inQuestions)qNo++;pushText([{x:(inQuestions?qNo:(x.start||1)+i)+'. ',b:true},{x:num[1]}],null,{sb:50,sa:55});}
+    else pushText([{x:(x.ord?((x.start||1)+i)+'.':'')+'\t'},...(it.runs||[{x:t}])],null,{il:465,hang:360,sa:55});
    });continue;
   }
   if(x.k==='t')body.push(gTbl_(x.rows,9072,{font:F,sz,hdrFill:'0789DF',secFill:'DCEEFF',hdrH:0}),p_('',{}));
@@ -813,7 +854,7 @@ function appendAssessment_(body,n,F,sz,mode){
 }
 /* ---- LKPD / Soal: gaya umum ---- */
 B.media=n=>{const body=[p_('MEDIA PEMBELAJARAN',{al:'center',b:true,sa:120})];
- n.forEach(x=>{if(x.k==='h')body.push(p_(x.text,{b:true,sb:120,sa:60,keep:true}));else if(x.k==='p')body.push(p_(x.runs,{al:'both',line:276,sa:80}));else if(x.k==='l')x.items.forEach((it,k)=>body.push(p_([{x:(x.ord?(k+1)+'.':'•')+'\t'},...it.runs],{il:465,hang:360,al:'both'})));else if(x.k==='t')body.push(gTbl_(x.rows,9072,{hdrH:0}),p_('',{}))});
+ n.forEach(x=>{if(x.k==='h')body.push(p_(x.text,{b:true,sb:120,sa:60,keep:true}));else if(x.k==='p')body.push(p_(x.runs,{al:'both',line:276,sa:80}));else if(x.k==='l')x.items.forEach((it,k)=>body.push(p_([{x:numOf_(x,k)+'\t'},...it.runs],{il:465,hang:360,al:'both'})));else if(x.k==='t')body.push(gTbl_(x.rows,9072,{hdrH:0}),p_('',{}))});
  return{page:pgA4(1701,1134,1134,1701),font:'Arial',sz:22,body}};
 B.lkpd=n=>{const F='Arial',sz=22,body=[...cover_('', ['LEMBAR KERJA PESERTA DIDIK (LKPD)']),p_('LEMBAR KERJA PESERTA DIDIK (LKPD)',{al:'center',b:true,color:'3A0B4A',sa:100,font:F,sz}),kv_([['Mata Pelajaran',prof.mapel],['Kelas / Semester',prof.kelas+' / '+((data.promes&&data.promes.sem==='Genap')?'Genap':'Ganjil')],['Materi Pokok',(data.rpm&&data.rpm.materi)||''],['Alokasi Waktu',(data.rpm&&data.rpm.alok)||''],['Nama Murid',''],['Kelas',prof.kelas],['Tanggal','']],[2500,200,5800],{bl:true,bv:true}),p_('',{})];
  appendAssessment_(body,n,F,sz,'worksheet');body.push(p_('',{}),sig_([4536,4538],F,22,{al:'left',gap:900}));return{page:pgA4(1701,1134,1134,1701),font:F,sz,body}};
