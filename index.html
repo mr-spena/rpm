@@ -382,7 +382,10 @@ const head=m=>`<p style="text-align:center"><b>${esc(m.n.replace(/^\d+\.\s*/,'')
 /* ---------- Tampilan ---------- */
 const ICO={home:'🏠',rpe:'📅',cp:'🎯',tp:'🗂️',kktp:'✅',promes:'🗓️',rpm:'📘',lkpd:'📄',sumatif:'📝',set:'⚙️'};
 const nmod=m=>m.n.replace(/^\d+\.\s*/,'');
-function logout(){sessionStorage.removeItem('spena_in');document.body.classList.remove('nv');boot()}
+function inChk(){try{return localStorage.getItem('spena_in')==='1'}catch(e){return false}}
+function inSet(){try{localStorage.setItem('spena_in','1')}catch(e){}}
+function inOut(){try{localStorage.removeItem('spena_in')}catch(e){}}
+function logout(){inOut();document.body.classList.remove('nv');boot()}
 function nav(){
  const it=(id,l)=>'<button class="'+(tab===id?'on':'')+'" data-t="'+id+'"><span class="ic">'+ICO[id]+'</span>'+l+(data[id]?'<i class="dot"></i>':'')+'</button>';
  const ms=ids=>MODS.filter(m=>ids.includes(m.id)).map(m=>it(m.id,nmod(m))).join('');
@@ -908,21 +911,21 @@ async function pull(force){
  return 'baru'}
 async function syncStart(){
  const c=syncCfg();if(!c||!c.u)return;
- try{const r=await pull(false);if(r==='baru'){toast('Data terbaru dari cloud dimuat');if(sessionStorage.getItem('spena_in')==='1')show()}}catch(e){toast('Sinkronisasi gagal: '+e.message,1)}}
+ try{const r=await pull(false);if(r==='baru'){toast('Data terbaru dari cloud dimuat');if(inChk())show()}}catch(e){toast('Sinkronisasi gagal: '+e.message,1)}}
 (function(){const m=location.hash.match(/^#s=(.+)$/);if(!m)return;
  try{const o=JSON.parse(decodeURIComponent(escape(atob(m[1]))));LS.set('spena_sync',o);history.replaceState(null,'',location.pathname+location.search);
-  sCall('load').then(()=>pull(true)).then(()=>{toast('Perangkat terhubung. Data dimuat dari cloud.');if(sessionStorage.getItem('spena_in')==='1')show()}).catch(e=>toast(e.message,1))}catch(e){}})();
+  sCall('load').then(()=>pull(true)).then(()=>{toast('Perangkat terhubung. Data dimuat dari cloud.');if(inChk())show()}).catch(e=>toast(e.message,1))}catch(e){}})();
 
 /* ---------- Mulai ---------- */
 async function boot(){
- const ok=sessionStorage.getItem('spena_in')==='1';
+ const ok=inChk();
  $('#login').classList.toggle('hide',ok);$('#app').classList.toggle('hide',!ok);
  if(ok)show()}
 $('#lf').onsubmit=async e=>{e.preventDefault();
  const a=LS.get(K.auth,null),u=$('#lu').value.trim(),h=await sha($('#lp').value);
  const good=a?(u===a.u&&h===a.h):(u==='feri'&&$('#lp').value==='spena.2026.');
  if(!good)return toast('Username atau password salah',1);
- sessionStorage.setItem('spena_in','1');$('#lp').value='';boot()};
+ inSet();$('#lp').value='';boot()};
 boot();
 syncStart();
 </script>
